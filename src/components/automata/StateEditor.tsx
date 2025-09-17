@@ -97,11 +97,11 @@ export function StateEditor({
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6"
+            className="bg-card rounded-lg shadow-xl max-w-md w-full p-6 border border-border"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 className="text-lg font-semibold text-foreground">
                 {initialState ? 'Edit State' : 'Add State'}
               </h3>
               <Button
@@ -116,12 +116,12 @@ export function StateEditor({
             <div className="space-y-4">
               {/* Error Messages */}
               {errors.length > 0 && (
-                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                   <div className="flex items-start space-x-2">
                     <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
                     <div>
-                      <p className="text-red-700 dark:text-red-300 text-sm font-medium">Please fix the following errors:</p>
-                      <ul className="text-red-600 dark:text-red-400 text-sm mt-1">
+                      <p className="text-red-700 text-sm font-medium">Please fix the following errors:</p>
+                      <ul className="text-red-600 text-sm mt-1">
                         {errors.map((error, index) => (
                           <li key={index}>• {error}</li>
                         ))}
@@ -134,7 +134,7 @@ export function StateEditor({
               {/* State Name */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="stateName" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <Label htmlFor="stateName" className="text-sm font-medium text-foreground">
                     State Name
                   </Label>
                   <Button
@@ -156,7 +156,7 @@ export function StateEditor({
                   onKeyPress={handleKeyPress}
                   className="font-mono"
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Use letters, numbers, and underscores only
                 </p>
               </div>
@@ -175,7 +175,7 @@ export function StateEditor({
                       onChange={(e) => setIsInitial(e.target.checked)}
                       className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
                     />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Initial State</span>
+                    <span className="text-sm text-foreground">Initial State</span>
                   </label>
                   
                   <label className="flex items-center space-x-2">
@@ -185,15 +185,15 @@ export function StateEditor({
                       onChange={(e) => setIsFinal(e.target.checked)}
                       className="rounded border-gray-300 text-green-600 focus:ring-green-500"
                     />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">Final State</span>
+                    <span className="text-sm text-foreground">Final State</span>
                   </label>
                 </div>
               </div>
 
               {/* Preview */}
               {name && (
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Preview:</p>
+                <div className="bg-muted rounded-lg p-3">
+                  <p className="text-sm text-muted-foreground mb-2">Preview:</p>
                   <div className="flex items-center space-x-2">
                     <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-sm font-bold ${
                       isInitial && isFinal
@@ -206,7 +206,7 @@ export function StateEditor({
                     }`}>
                       {name || '?'}
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="text-sm text-muted-foreground">
                       {isInitial && isFinal && 'Initial & Final State'}
                       {isInitial && !isFinal && 'Initial State'}
                       {!isInitial && isFinal && 'Final State'}
@@ -221,7 +221,7 @@ export function StateEditor({
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} className="bg-orange-500 hover:bg-orange-600">
+              <Button onClick={handleSave}>
                 <Check className="h-4 w-4 mr-2" />
                 {initialState ? 'Update' : 'Add'} State
               </Button>
@@ -232,6 +232,7 @@ export function StateEditor({
     </AnimatePresence>
   )
 }
+
 
 
 

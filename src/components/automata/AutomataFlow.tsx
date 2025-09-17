@@ -471,10 +471,10 @@ export function AutomataFlow({
     <div className={`relative w-full h-full ${className}`}>
       {/* Connection Mode Overlay */}
       {connectionMode && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 bg-orange-100 dark:bg-orange-900 border border-orange-300 dark:border-orange-700 rounded-lg px-4 py-2 shadow-lg">
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 bg-primary/10 border border-primary/30 rounded-lg px-4 py-2 shadow-lg">
           <div className="flex items-center space-x-2">
-            <Link className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-            <span className="text-sm font-medium text-orange-800 dark:text-orange-200">
+            <Link className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary">
               {selectedNodeForConnection 
                 ? `Click a target state to connect from "${automata.states.find(s => s.id === selectedNodeForConnection)?.name}"` 
                 : 'Click a state to start connecting'}

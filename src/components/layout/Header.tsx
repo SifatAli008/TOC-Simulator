@@ -2,68 +2,93 @@
 
 import React from 'react'
 import { Button } from '@/components/ui/button'
-import { useTheme } from '@/contexts/ThemeContext'
-import { Sun, Moon, Monitor, Menu, X } from 'lucide-react'
-import { useState } from 'react'
+import { Menu, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
 
 export function Header() {
-  const { theme, setTheme, actualTheme } = useTheme()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  const toggleTheme = () => {
-    if (theme === 'light') setTheme('dark')
-    else if (theme === 'dark') setTheme('system')
-    else setTheme('light')
-  }
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
-  const getThemeIcon = () => {
-    if (theme === 'system') return <Monitor className="h-5 w-5" />
-    return actualTheme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />
+  if (!mounted) {
+    return (
+      <header className="w-full relative animate-fade-in">
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+        <div className="absolute inset-0 border-b border-white/20"></div>
+        <div className="container mx-auto flex h-20 items-center justify-between px-8 relative z-10">
+          <div className="flex items-center space-x-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-orange-500 to-orange-600 text-white font-poppins font-black text-xl">
+              T
+            </div>
+            <span className="text-2xl font-poppins font-bold text-white">
+              TOC Simulator
+            </span>
+          </div>
+          <nav className="hidden md:flex items-center space-x-2">
+            <a href="/dashboard" className="text-white/90 px-6 py-3 font-poppins font-medium text-lg">Home</a>
+            <a href="#features" className="text-white/90 px-6 py-3 font-poppins font-medium text-lg">Simulators</a>
+            <a href="#tutorials" className="text-white/90 px-6 py-3 font-poppins font-medium text-lg">Tutorials</a>
+          </nav>
+          <div className="hidden md:flex items-center space-x-4">
+            <Button variant="outline" size="lg" className="h-12 px-6 border-2 border-white/50 bg-transparent text-white">
+              Sign In
+            </Button>
+            <Button size="lg" className="bg-gradient-to-r from-primary via-orange-500 to-orange-600 h-12 px-8">
+              Get Started
+            </Button>
+          </div>
+        </div>
+      </header>
+    )
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-gray-800 dark:bg-gray-900/80 dark:supports-[backdrop-filter]:bg-gray-900/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+    <header className="w-full relative animate-fade-in">
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-top bg-no-repeat"
+        style={{ backgroundImage: 'url(/Image/4929571ca9465e280f1fa7e9bd7772aa.gif)' }}
+      ></div>
+      
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+      <div className="absolute inset-0 border-b border-white/20"></div>
+      <div className="container mx-auto flex h-20 items-center justify-between px-8 relative z-10">
         {/* Logo */}
-        <div className="flex items-center space-x-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-600 text-white font-bold">
+        <div className="flex items-center space-x-4 interactive group">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-orange-500 to-orange-600 text-white font-poppins font-black text-xl shadow-lg hover:shadow-orange-500/30 transition-all duration-300 hover:scale-110 group-hover:rotate-3">
             T
           </div>
-          <span className="text-xl font-bold text-gray-900 dark:text-white">
+          <span className="text-2xl font-poppins font-bold text-white">
             TOC Simulator
           </span>
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-6">
-          <a href="/dashboard" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
-            Dashboard
+        <nav className="hidden md:flex items-center space-x-2">
+          <a href="/dashboard" className="relative text-white/90 hover:text-white transition-all duration-300 group px-6 py-3 rounded-xl hover:bg-primary/10 font-poppins font-medium text-lg">
+            Home
+            <span className="absolute -bottom-1 left-1/2 w-0 h-1 bg-gradient-to-r from-primary to-orange-500 rounded-full transition-all duration-300 group-hover:w-8 transform -translate-x-1/2"></span>
           </a>
-          <a href="#features" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
-            Features
+          <a href="/features" className="relative text-white/90 hover:text-white transition-all duration-300 group px-6 py-3 rounded-xl hover:bg-primary/10 font-poppins font-medium text-lg">
+            Simulators
+            <span className="absolute -bottom-1 left-1/2 w-0 h-1 bg-gradient-to-r from-primary to-orange-500 rounded-full transition-all duration-300 group-hover:w-8 transform -translate-x-1/2"></span>
           </a>
-          <a href="#tutorials" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
-            Tutorials
+          <a href="/study-materials" className="relative text-white/90 hover:text-white transition-all duration-300 group px-6 py-3 rounded-xl hover:bg-primary/10 font-poppins font-medium text-lg">
+            Study Materials
+            <span className="absolute -bottom-1 left-1/2 w-0 h-1 bg-gradient-to-r from-primary to-orange-500 rounded-full transition-all duration-300 group-hover:w-8 transform -translate-x-1/2"></span>
           </a>
         </nav>
 
         {/* Desktop Actions */}
         <div className="hidden md:flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-          >
-            {getThemeIcon()}
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <a href="/simulator">Simulator</a>
-          </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="lg" className="hover-scale font-poppins font-semibold h-12 px-6 border-2 border-white/50 bg-transparent hover:border-primary hover:bg-primary/10 text-white hover:text-primary">
             Sign In
           </Button>
-          <Button size="sm">
+          <Button size="lg" className="hover-glow bg-gradient-to-r from-primary via-orange-500 to-orange-600 hover:from-orange-500 hover:via-primary hover:to-orange-700 font-poppins font-bold h-12 px-8 shadow-lg hover:shadow-orange-500/30">
             Get Started
           </Button>
         </div>
@@ -72,41 +97,41 @@ export function Header() {
         <div className="md:hidden flex items-center space-x-2">
           <Button
             variant="ghost"
-            size="sm"
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-          >
-            {getThemeIcon()}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
+            size="lg"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             aria-label="Toggle mobile menu"
+            className="h-12 w-12 hover:bg-primary/10 rounded-xl"
           >
-            {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </Button>
         </div>
       </div>
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden border-t bg-white dark:border-gray-800 dark:bg-gray-900">
-          <div className="container mx-auto px-4 py-4 space-y-4">
-            <a href="/dashboard" className="block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
-              Dashboard
+        <div className="md:hidden relative animate-slide-in-up">
+          {/* Mobile Menu Background */}
+          <div 
+            className="absolute inset-0 bg-cover bg-top bg-no-repeat"
+            style={{ backgroundImage: 'url(/Image/4929571ca9465e280f1fa7e9bd7772aa.gif)' }}
+          ></div>
+          <div className="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
+          <div className="absolute inset-0 border-t border-white/20"></div>
+          <div className="container mx-auto px-8 py-10 space-y-8 relative z-10">
+            <a href="/dashboard" className="block text-white/90 hover:text-white transition-all duration-300 py-4 px-6 rounded-xl hover:bg-primary/10 interactive font-poppins font-medium text-xl">
+              Home
             </a>
-            <a href="#features" className="block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
-              Features
+            <a href="/features" className="block text-white/90 hover:text-white transition-all duration-300 py-4 px-6 rounded-xl hover:bg-primary/10 interactive font-poppins font-medium text-xl">
+              Simulators
             </a>
-            <a href="#tutorials" className="block text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white transition-colors">
-              Tutorials
+            <a href="/study-materials" className="block text-white/90 hover:text-white transition-all duration-300 py-4 px-6 rounded-xl hover:bg-primary/10 interactive font-poppins font-medium text-xl">
+              Study Materials
             </a>
-            <div className="pt-4 space-y-2">
-              <Button variant="outline" size="sm" className="w-full">
+            <div className="pt-8 space-y-6 border-t border-white/20">
+              <Button variant="outline" size="lg" className="w-full h-14 hover-scale font-poppins font-semibold text-lg border-2 border-white/50 bg-transparent text-white hover:border-primary hover:bg-primary/10 hover:text-primary">
                 Sign In
               </Button>
-              <Button size="sm" className="w-full">
+              <Button size="lg" className="w-full h-14 hover-glow bg-gradient-to-r from-primary via-orange-500 to-orange-600 font-poppins font-bold text-lg shadow-lg">
                 Get Started
               </Button>
             </div>

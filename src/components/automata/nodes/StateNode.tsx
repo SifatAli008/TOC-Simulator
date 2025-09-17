@@ -22,10 +22,10 @@ export const StateNode = memo(({ data, selected }: NodeProps<StateNodeData>) => 
 
   const getStateStyles = () => {
     if (state.isInitial && state.isFinal) {
-      return 'bg-gradient-to-br from-orange-500 to-green-500 border-orange-600 text-white shadow-lg'
+      return 'bg-gradient-to-br from-primary to-green-500 border-primary text-white shadow-lg'
     }
     if (state.isInitial) {
-      return 'bg-orange-500 border-orange-600 text-white shadow-lg'
+      return 'bg-primary border-primary text-primary-foreground shadow-lg'
     }
     if (state.isFinal) {
       return 'bg-green-500 border-green-600 text-white shadow-lg'
@@ -35,16 +35,16 @@ export const StateNode = memo(({ data, selected }: NodeProps<StateNodeData>) => 
 
   const getRingStyles = () => {
     if (isSelectedForConnection) {
-      return 'ring-4 ring-orange-500 ring-offset-2 animate-pulse'
+      return 'ring-4 ring-primary ring-offset-2 animate-pulse'
     }
     if (selected || isSelected) {
-      return 'ring-2 ring-orange-400 ring-offset-2'
+      return 'ring-2 ring-primary ring-offset-2'
     }
     if (isHovered) {
       return 'ring-2 ring-blue-300 ring-offset-1'
     }
     if (connectionMode) {
-      return 'ring-1 ring-gray-400 ring-offset-1'
+      return 'ring-1 ring-muted-foreground ring-offset-1'
     }
     return ''
   }

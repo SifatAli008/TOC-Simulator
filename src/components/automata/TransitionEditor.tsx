@@ -253,7 +253,7 @@ export function TransitionEditor({
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} className="bg-orange-500 hover:bg-orange-600">
+              <Button onClick={handleSave}>
                 <Check className="h-4 w-4 mr-2" />
                 {existingTransition ? 'Update' : 'Add'} Transition
               </Button>
@@ -264,6 +264,7 @@ export function TransitionEditor({
     </AnimatePresence>
   )
 }
+
 
 
 
