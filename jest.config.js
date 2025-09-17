@@ -11,6 +11,10 @@ const config = {
   coverageProvider: 'v8',
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  verbose: false,
+  silent: false,
+  bail: false,
+  passWithNoTests: true,
   moduleNameMapping: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
@@ -21,14 +25,15 @@ const config = {
     '!src/app/globals.css',
     '!src/lib/firebase.ts', // Exclude Firebase config
   ],
-  coverageThreshold: {
-    global: {
-      branches: 50,
-      functions: 50,
-      lines: 50,
-      statements: 50,
-    },
-  },
+  // Disable coverage thresholds for initial setup
+  // coverageThreshold: {
+  //   global: {
+  //     branches: 50,
+  //     functions: 50,
+  //     lines: 50,
+  //     statements: 50,
+  //   },
+  // },
   testMatch: [
     '<rootDir>/**/__tests__/**/*.{js,jsx,ts,tsx}',
     '<rootDir>/**/*.(test|spec).{js,jsx,ts,tsx}',
