@@ -112,27 +112,22 @@ jobs:
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Build Project Artifacts
+      - name: Setup Environment Variables
         run: |
-          echo "Building with Vercel..."
-          vercel build --prod --token=${{ secrets.VERCEL_TOKEN }} || {
-            echo "Vercel build failed, trying alternative approach..."
-            echo "Setting up environment variables for local build..."
-            echo "NEXT_PUBLIC_FIREBASE_API_KEY=build-mock-key" > .env.local
-            echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=build.firebaseapp.com" >> .env.local
-            echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=build-project" >> .env.local
-            echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=build.firebasestorage.app" >> .env.local
-            echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789" >> .env.local
-            echo "NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:buildmock" >> .env.local
-            echo "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-BUILDMOCK" >> .env.local
-            npm run build:ci
-            echo "Local build completed"
-          }
+          echo "NEXT_PUBLIC_FIREBASE_API_KEY=build-mock-key" > .env.local
+          echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=build.firebaseapp.com" >> .env.local
+          echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=build-project" >> .env.local
+          echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=build.firebasestorage.app" >> .env.local
+          echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789" >> .env.local
+          echo "NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:buildmock" >> .env.local
+          echo "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-BUILDMOCK" >> .env.local
 
-      - name: Deploy Project Artifacts to Vercel
+      - name: Deploy to Vercel
         id: deploy
         run: |
-          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "Deploying directly to Vercel..."
+          url=$(vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --yes)
+          echo "Deployment URL: $url"
           echo "production_url=$url" >> $GITHUB_OUTPUT
 
       - name: Create deployment status
