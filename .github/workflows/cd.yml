@@ -88,13 +88,29 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@canary
 
-      - name: Pull Vercel Environment Information
+      - name: Verify Vercel Secrets
         run: |
+          echo "## Vercel Configuration Check" >> $GITHUB_STEP_SUMMARY
           if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
-            echo "VERCEL_TOKEN secret not configured. Please add it to GitHub secrets."
+            echo "❌ VERCEL_TOKEN secret not configured" >> $GITHUB_STEP_SUMMARY
+            echo "Please add it to GitHub secrets: https://github.com/SifatAli008/TOC-Simulator/settings/secrets/actions"
+            echo "Value should be: 4QoNVvLgxcN4UlrAeWXBn8Zc"
             exit 1
           fi
-          vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+          if [ -z "${{ secrets.VERCEL_ORG_ID }}" ]; then
+            echo "❌ VERCEL_ORG_ID secret not configured" >> $GITHUB_STEP_SUMMARY
+            echo "Please add VERCEL_ORG_ID: team_9eEABLbyiHLdJRpp2L5GTlZF"
+            exit 1
+          fi
+          if [ -z "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
+            echo "❌ VERCEL_PROJECT_ID secret not configured" >> $GITHUB_STEP_SUMMARY
+            echo "Please add VERCEL_PROJECT_ID: prj_9Ec6A6C4B53fKo31K18r1bNdPARB"
+            exit 1
+          fi
+          echo "✅ All Vercel secrets configured" >> $GITHUB_STEP_SUMMARY
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build Project Artifacts
         run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
