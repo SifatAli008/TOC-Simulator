@@ -34,6 +34,10 @@ export interface SavedAutomata {
 export class FirebaseAutomataService {
   private static readonly COLLECTION_NAME = 'automata'
 
+  private static isFirebaseAvailable(): boolean {
+    return db !== null && db !== undefined;
+  }
+
   static async saveAutomata(
     automata: Automata, 
     userId: string, 
@@ -42,6 +46,10 @@ export class FirebaseAutomataService {
     tags: string[] = [],
     isPublic: boolean = false
   ): Promise<string> {
+    if (!this.isFirebaseAvailable()) {
+      throw new Error('Firebase is not available. Please configure Firebase environment variables.');
+    }
+
     try {
       const docRef = await addDoc(collection(db, this.COLLECTION_NAME), {
         automata,
