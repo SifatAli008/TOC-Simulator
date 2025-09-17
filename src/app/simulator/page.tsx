@@ -141,43 +141,6 @@ export default function SimulatorPage() {
           </div>
         )}
 
-        {/* Validation Warnings */}
-        {validationWarnings.length > 0 && (
-          <div className="bg-yellow-50 border-b border-yellow-200">
-            <div className="px-6 py-3">
-              <div className="flex items-start space-x-2">
-                <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
-                <div>
-                  <p className="text-yellow-700 text-sm font-medium">Warnings:</p>
-                  <ul className="text-yellow-600 text-sm mt-1">
-                    {validationWarnings.map((warning, index) => (
-                      <li key={index}>• {warning}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Validation Errors */}
-        {validationErrors.length > 0 && (
-          <div className="bg-red-50 border-b border-red-200">
-            <div className="px-6 py-3">
-              <div className="flex items-start space-x-2">
-                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
-                <div>
-                  <p className="text-red-700 text-sm font-medium">Errors:</p>
-                  <ul className="text-red-600 text-sm mt-1">
-                    {validationErrors.map((error, index) => (
-                      <li key={index}>• {error}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Header */}
         <div className="bg-card border-b border-border">
@@ -266,6 +229,8 @@ export default function SimulatorPage() {
               onAutomataChange={handleAutomataChange}
               onSimulate={handleSimulate}
               isSimulating={isSimulating}
+              validationWarnings={validationWarnings}
+              validationErrors={validationErrors}
             />
           </div>
         )}
