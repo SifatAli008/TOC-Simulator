@@ -6,7 +6,7 @@ An interactive web-based tool designed to teach and test Theory of Computation (
 
 ### Core Functionality
 - **Automata Design & Simulation**: Create and simulate DFA, NFA, Regular Expressions, and Turing Machines
-- **3D Visualization**: Interactive Three.js powered 3D models with zoom, pan, and rotation
+
 - **Step-by-Step Execution**: Trace input processing with pause, play, and rewind controls
 - **Interactive Visualization**: Drag-and-drop interface with real-time state highlighting
 - **Model Conversion**: Automatic NFA → DFA conversion and Regex to NFA/DFA transformation
