@@ -11,7 +11,7 @@ permissions:
   checks: write
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '20'
 
 jobs:
   setup:
@@ -85,7 +85,7 @@ jobs:
     needs: setup
     strategy:
       matrix:
-        node-version: [18, 20]
+        node-version: [20]
       fail-fast: false
     steps:
       - name: Checkout code
