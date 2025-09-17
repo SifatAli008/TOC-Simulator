@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: [ 'javascript', 'typescript' ]
+        language: [ 'javascript' ]  # TypeScript is included in JavaScript analysis
 
     steps:
     - name: Checkout repository
@@ -30,7 +30,7 @@ jobs:
       uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
-        config-file: ./.github/codeql/codeql-config.yml
+        queries: security-and-quality
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -41,10 +41,21 @@ jobs:
     - name: Install dependencies
       run: npm ci
 
-    - name: Build application
+    - name: Create mock environment file
+      run: |
+        echo "NEXT_PUBLIC_FIREBASE_API_KEY=mock-key" > .env.local
+        echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=mock-domain" >> .env.local
+        echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=mock-project" >> .env.local
+        echo "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=mock-bucket" >> .env.local
+        echo "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456" >> .env.local
+        echo "NEXT_PUBLIC_FIREBASE_APP_ID=mock-app-id" >> .env.local
+        echo "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=mock-measurement" >> .env.local
+
+    - name: Build application for analysis
       run: npm run build
       env:
-        SKIP_ENV_VALIDATION: true
+        NODE_ENV: production
+      continue-on-error: true
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v3
