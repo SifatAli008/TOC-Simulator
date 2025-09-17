@@ -1,0 +1,172 @@
+name: CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    branches: [ main ]
+    types: [completed]
+
+env:
+  NODE_VERSION: '18'
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  # Deploy to Staging (Preview)
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref != 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@canary
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy Project Artifacts to Vercel
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "preview_url=$url" >> $GITHUB_OUTPUT
+
+      - name: Comment PR with Preview URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚀 **Preview Deployment Ready!**
+              
+              Preview URL: ${{ steps.deploy.outputs.preview_url }}
+              
+              This preview will be automatically updated when you push new changes to this PR.`
+            })
+
+  # Deploy to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.production_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@canary
+
+      - name: Pull Vercel Environment Information
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build Project Artifacts
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy Project Artifacts to Vercel
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "production_url=$url" >> $GITHUB_OUTPUT
+
+      - name: Create deployment status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: context.payload.deployment?.id || 0,
+              state: 'success',
+              environment_url: '${{ steps.deploy.outputs.production_url }}',
+              description: 'Deployment completed successfully'
+            })
+
+  # Post-Deployment Tests
+  post-deploy-tests:
+    name: Post-Deployment Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run smoke tests
+        run: npm run test:smoke
+        env:
+          BASE_URL: ${{ needs.deploy-production.outputs.production_url }}
+
+      - name: Run accessibility tests
+        run: npm run test:a11y
+        env:
+          BASE_URL: ${{ needs.deploy-production.outputs.production_url }}
+
+      - name: Performance audit
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: |
+            ${{ needs.deploy-production.outputs.production_url }}
+            ${{ needs.deploy-production.outputs.production_url }}/simulator
+            ${{ needs.deploy-production.outputs.production_url }}/dashboard
+          configPath: './lighthouserc.json'
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+
+  # Notification
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-production, post-deploy-tests]
+    if: always() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Notify deployment status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ needs.deploy-production.result }}' === 'success' && '${{ needs.post-deploy-tests.result }}' === 'success' ? '✅ Success' : '❌ Failed';
+            const url = '${{ needs.deploy-production.outputs.production_url }}';
+            
+            github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body: `🚀 **Deployment ${status}**
+              
+              Production URL: ${url}
+              
+              The TOC Simulator has been deployed and is ready for use!`
+            })
