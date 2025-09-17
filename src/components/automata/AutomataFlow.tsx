@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useCallback, useMemo, useState } from 'react'
-import 'reactflow/dist/style.css'
 import ReactFlow, {
   Node,
   Edge,
@@ -34,15 +33,6 @@ interface AutomataFlowProps {
   onStateSelect?: (stateId: string) => void
   onStateDoubleClick?: (stateId: string) => void
   className?: string
-}
-
-// Define custom node and edge types
-const nodeTypes: NodeTypes = {
-  stateNode: StateNode,
-}
-
-const edgeTypes: EdgeTypes = {
-  transitionEdge: TransitionEdge,
 }
 
 // Auto-layout function using Dagre
@@ -83,6 +73,15 @@ export function AutomataFlow({
   onStateDoubleClick,
   className = '',
 }: AutomataFlowProps) {
+  // Memoize node and edge types to prevent React Flow warnings
+  const nodeTypes = useMemo<NodeTypes>(() => ({
+    stateNode: StateNode,
+  }), [])
+
+  const edgeTypes = useMemo<EdgeTypes>(() => ({
+    transitionEdge: TransitionEdge,
+  }), [])
+
   // State declarations first
   const [layoutDirection, setLayoutDirection] = useState<'TB' | 'LR'>('TB')
   const [contextMenu, setContextMenu] = useState<{
@@ -553,25 +552,56 @@ export function AutomataFlow({
         </Panel>
 
         {/* Info panel */}
-        <Panel position="bottom-right" className="bg-white/90 rounded-lg p-2 text-xs">
-          <div className="space-y-1">
-            <div>States: {automata.states.length}</div>
-            <div>Transitions: {automata.transitions.length}</div>
+        <Panel position="top-left" className="bg-white/95 dark:bg-gray-800/95 rounded-lg p-3 text-sm shadow-lg border border-gray-200 dark:border-gray-600 mt-16 ml-4">
+          <div className="space-y-2">
+            {/* Stats */}
+            <div className="space-y-1">
+              <div className="font-semibold text-gray-900 dark:text-gray-100">
+                States: <span className="text-blue-600 dark:text-blue-400">{automata.states.length}</span>
+              </div>
+              <div className="font-semibold text-gray-900 dark:text-gray-100">
+                Transitions: <span className="text-green-600 dark:text-green-400">{automata.transitions.length}</span>
+              </div>
+            </div>
+            
             {connectionMode && (
-              <div className="text-orange-600 font-medium">
+              <div className="text-orange-600 dark:text-orange-400 font-semibold bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded">
                 🔗 Connection Mode Active
               </div>
             )}
-            <div className="text-gray-500">
-              <div>• Double-click canvas to add state</div>
-              <div>• Right-click for context menu</div>
-              <div>• Right-click node → "Add Self-Loop"</div>
-              {connectionMode ? (
-                <div className="text-orange-600">• Click nodes to connect them</div>
-              ) : (
-                <div>• Drag from node handles to connect</div>
-              )}
-              <div className="text-blue-600">• Multiple edges auto-spaced</div>
+            
+            {/* Instructions */}
+            <div className="border-t border-gray-200 dark:border-gray-600 pt-2">
+              <div className="text-gray-700 dark:text-gray-300 font-medium mb-1">Quick Actions:</div>
+              <div className="space-y-1 text-gray-800 dark:text-gray-200">
+                <div className="flex items-center">
+                  <span className="text-blue-500 dark:text-blue-400 font-bold mr-1">•</span>
+                  <span className="font-medium">Double-click canvas to add state</span>
+                </div>
+                <div className="flex items-center">
+                  <span className="text-green-500 dark:text-green-400 font-bold mr-1">•</span>
+                  <span className="font-medium">Right-click for context menu</span>
+                </div>
+                <div className="flex items-center">
+                  <span className="text-purple-500 dark:text-purple-400 font-bold mr-1">•</span>
+                  <span className="font-medium">Right-click node → "Add Self-Loop"</span>
+                </div>
+                {connectionMode ? (
+                  <div className="flex items-center">
+                    <span className="text-orange-500 dark:text-orange-400 font-bold mr-1">•</span>
+                    <span className="font-medium text-orange-600 dark:text-orange-400">Click nodes to connect them</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <span className="text-indigo-500 dark:text-indigo-400 font-bold mr-1">•</span>
+                    <span className="font-medium">Drag from node handles to connect</span>
+                  </div>
+                )}
+                <div className="flex items-center">
+                  <span className="text-cyan-500 dark:text-cyan-400 font-bold mr-1">•</span>
+                  <span className="font-medium text-cyan-600 dark:text-cyan-400">Multiple edges auto-spaced</span>
+                </div>
+              </div>
             </div>
           </div>
         </Panel>
