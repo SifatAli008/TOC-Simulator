@@ -8,6 +8,13 @@ on:
     branches: [ main ]
     types: [completed]
 
+permissions:
+  contents: read
+  deployments: write
+  issues: write
+  pull-requests: write
+  statuses: write
+
 env:
   NODE_VERSION: '18'
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -95,16 +102,35 @@ jobs:
 
       - name: Create deployment status
         uses: actions/github-script@v7
+        continue-on-error: true
         with:
           script: |
-            github.rest.repos.createDeploymentStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              deployment_id: context.payload.deployment?.id || 0,
-              state: 'success',
-              environment_url: '${{ steps.deploy.outputs.production_url }}',
-              description: 'Deployment completed successfully'
-            })
+            try {
+              // Create a deployment record first
+              const deployment = await github.rest.repos.createDeployment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: context.sha,
+                environment: 'production',
+                description: 'Production deployment',
+                auto_merge: false,
+                required_contexts: []
+              });
+              
+              // Then create the deployment status
+              if (deployment.data.id) {
+                await github.rest.repos.createDeploymentStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  deployment_id: deployment.data.id,
+                  state: 'success',
+                  environment_url: '${{ steps.deploy.outputs.production_url }}',
+                  description: 'Deployment completed successfully'
+                });
+              }
+            } catch (error) {
+              console.log('Deployment status creation failed:', error.message);
+            }
 
   # Post-Deployment Tests
   post-deploy-tests:
@@ -152,21 +178,49 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-production, post-deploy-tests]
     if: always() && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
     steps:
       - name: Notify deployment status
         uses: actions/github-script@v7
+        continue-on-error: true
         with:
           script: |
-            const status = '${{ needs.deploy-production.result }}' === 'success' && '${{ needs.post-deploy-tests.result }}' === 'success' ? '✅ Success' : '❌ Failed';
-            const url = '${{ needs.deploy-production.outputs.production_url }}';
-            
-            github.rest.repos.createCommitComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              commit_sha: context.sha,
-              body: `🚀 **Deployment ${status}**
+            try {
+              const deployResult = '${{ needs.deploy-production.result }}';
+              const testResult = '${{ needs.post-deploy-tests.result }}';
+              const status = deployResult === 'success' && testResult === 'success' ? '✅ Success' : '❌ Failed';
+              const url = '${{ needs.deploy-production.outputs.production_url }}' || 'URL not available';
               
-              Production URL: ${url}
+              const body = `🚀 **Deployment ${status}**
               
-              The TOC Simulator has been deployed and is ready for use!`
-            })
+              **Deployment Result**: ${deployResult}
+              **Tests Result**: ${testResult}
+              **Production URL**: ${url}
+              
+              The TOC Simulator deployment process has completed!`;
+              
+              await github.rest.repos.createCommitComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha,
+                body: body
+              });
+              
+              console.log('Deployment notification sent successfully');
+            } catch (error) {
+              console.log('Failed to create deployment notification:', error.message);
+              // Try alternative notification method
+              try {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: `Deployment Status - ${new Date().toISOString()}`,
+                  body: `Deployment completed with status: ${{ needs.deploy-production.result }}`
+                });
+              } catch (fallbackError) {
+                console.log('Fallback notification also failed:', fallbackError.message);
+              }
+            }
