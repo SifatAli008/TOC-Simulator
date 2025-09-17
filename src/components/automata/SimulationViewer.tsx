@@ -59,7 +59,7 @@ export function SimulationViewer({ result, onStepChange, currentStep }: Simulati
 
   if (!result) {
     return (
-      <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+      <div className="p-6 text-center text-muted-foreground">
         <Play className="h-12 w-12 mx-auto mb-4 opacity-50" />
         <p>No simulation to display. Enter an input string and click Simulate.</p>
       </div>
@@ -72,10 +72,10 @@ export function SimulationViewer({ result, onStepChange, currentStep }: Simulati
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-foreground">
               Simulation Result
             </h3>
           </div>
@@ -87,14 +87,14 @@ export function SimulationViewer({ result, onStepChange, currentStep }: Simulati
             }`}>
               {result.isAccepted ? 'Accepted' : 'Rejected'}
             </span>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-sm text-muted-foreground">
               {result.executionTime.toFixed(2)}ms
             </span>
           </div>
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-4">
+        <div className="w-full bg-muted rounded-full h-2 mb-4">
           <div 
             className="bg-orange-500 h-2 rounded-full transition-all duration-300"
             style={{ width: `${progress}%` }}

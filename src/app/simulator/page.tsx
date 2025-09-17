@@ -122,17 +122,17 @@ export default function SimulatorPage() {
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-background">
         {/* Error Display */}
         {error && (
-          <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+          <div className="bg-red-50 border-b border-red-200">
             <div className="px-6 py-3">
               <div className="flex items-center space-x-2">
                 <AlertCircle className="h-5 w-5 text-red-500" />
-                <p className="text-red-700 dark:text-red-300 text-sm">{error}</p>
+                <p className="text-red-700 text-sm">{error}</p>
                 <button 
                   onClick={() => setError(null)}
-                  className="ml-auto text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                  className="ml-auto text-red-500 hover:text-red-700"
                 >
                   ×
                 </button>
@@ -143,13 +143,13 @@ export default function SimulatorPage() {
 
         {/* Validation Warnings */}
         {validationWarnings.length > 0 && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800">
+          <div className="bg-yellow-50 border-b border-yellow-200">
             <div className="px-6 py-3">
               <div className="flex items-start space-x-2">
                 <AlertCircle className="h-5 w-5 text-yellow-500 mt-0.5" />
                 <div>
-                  <p className="text-yellow-700 dark:text-yellow-300 text-sm font-medium">Warnings:</p>
-                  <ul className="text-yellow-600 dark:text-yellow-400 text-sm mt-1">
+                  <p className="text-yellow-700 text-sm font-medium">Warnings:</p>
+                  <ul className="text-yellow-600 text-sm mt-1">
                     {validationWarnings.map((warning, index) => (
                       <li key={index}>• {warning}</li>
                     ))}
@@ -162,13 +162,13 @@ export default function SimulatorPage() {
 
         {/* Validation Errors */}
         {validationErrors.length > 0 && (
-          <div className="bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+          <div className="bg-red-50 border-b border-red-200">
             <div className="px-6 py-3">
               <div className="flex items-start space-x-2">
                 <AlertCircle className="h-5 w-5 text-red-500 mt-0.5" />
                 <div>
-                  <p className="text-red-700 dark:text-red-300 text-sm font-medium">Errors:</p>
-                  <ul className="text-red-600 dark:text-red-400 text-sm mt-1">
+                  <p className="text-red-700 text-sm font-medium">Errors:</p>
+                  <ul className="text-red-600 text-sm mt-1">
                     {validationErrors.map((error, index) => (
                       <li key={index}>• {error}</li>
                     ))}
@@ -180,14 +180,14 @@ export default function SimulatorPage() {
         )}
 
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+        <div className="bg-card border-b border-border">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-foreground">
                 {automata.name}
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
+              <p className="text-sm text-muted-foreground">
                 {automata.type} • {automata.states.length} states • {automata.transitions.length} transitions
               </p>
             </div>
@@ -236,8 +236,8 @@ export default function SimulatorPage() {
               onClick={() => setActiveTab('editor')}
               className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'editor'
-                  ? 'border-orange-500 text-orange-600 dark:text-orange-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
               Editor
@@ -246,8 +246,8 @@ export default function SimulatorPage() {
               onClick={() => setActiveTab('simulation')}
               className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'simulation'
-                  ? 'border-orange-500 text-orange-600 dark:text-orange-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
               Simulation

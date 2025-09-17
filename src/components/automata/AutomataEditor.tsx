@@ -217,14 +217,14 @@ export function AutomataEditor({
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex items-center justify-between p-4 border-b border-border">
         <div className="flex items-center space-x-2">
-          <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-md">
+          <div className="flex items-center border border-border rounded-md">
             <Button
               variant={mode === 'select' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setMode('select')}
-              className="rounded-r-none border-r border-gray-300 dark:border-gray-600"
+              className="rounded-r-none border-r border-border"
             >
               <Square className="h-4 w-4 mr-2" />
               Select
@@ -233,7 +233,7 @@ export function AutomataEditor({
               variant={mode === 'addState' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setMode('addState')}
-              className="rounded-none border-r border-gray-300 dark:border-gray-600"
+              className="rounded-none border-r border-border"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add State
@@ -265,7 +265,7 @@ export function AutomataEditor({
             value={inputString}
             onChange={(e) => setInputString(e.target.value)}
             placeholder="Enter input string..."
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            className="px-3 py-2 border border-border rounded-md bg-background text-foreground focus:ring-2 focus:ring-primary focus:border-transparent"
           />
           <Button
             onClick={() => onSimulate(inputString)}
@@ -282,12 +282,12 @@ export function AutomataEditor({
       <div className="flex-1 relative">
         {/* Mode indicator */}
         {mode !== 'select' && (
-          <div className="absolute top-4 left-4 z-10 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg">
+          <div className="absolute top-4 left-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-border">
             <div className="flex items-center space-x-2">
               <div className={`w-2 h-2 rounded-full ${
-                mode === 'addState' ? 'bg-blue-500' : 'bg-orange-500'
+                mode === 'addState' ? 'bg-primary' : 'bg-primary'
               }`} />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <span className="text-sm font-medium text-foreground">
                 {mode === 'addState' ? 'Click to add state' : 'Drag from state to create transition'}
               </span>
             </div>
