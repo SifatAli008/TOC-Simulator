@@ -30,7 +30,7 @@ interface AutomataFlowProps {
   automata: Automata
   onAutomataChange: (automata: Automata) => void
   selectedState?: string
-  onStateSelect?: (stateId: string) => void
+  onStateSelect?: (stateId: string | undefined) => void
   onStateDoubleClick?: (stateId: string) => void
   className?: string
 }
@@ -131,7 +131,7 @@ export function AutomataFlow({
                 })
               }
               setSelectedNodeForConnection(null)
-              onStateSelect?.(null)
+              onStateSelect?.(undefined)
             }
           } else {
             onStateSelect?.(state.id)
@@ -163,7 +163,105 @@ export function AutomataFlow({
     }))
   }, [automata.states, selectedState, onStateSelect, onStateDoubleClick, automata, onAutomataChange, connectionMode, selectedNodeForConnection])
 
-  // Convert transitions to React Flow edges with overlap prevention
+  // Smart edge routing to minimize overlaps using 4-point connections
+  const calculateOptimalConnectionPoints = useCallback((fromState: State, toState: State, edgeIndex: number, totalEdges: number) => {
+    const dx = toState.x - fromState.x
+    const dy = toState.y - fromState.y
+    const distance = Math.sqrt(dx * dx + dy * dy)
+    
+    // If nodes are too close, use default center connections
+    if (distance < 80) {
+      return { sourceHandle: null, targetHandle: null }
+    }
+    
+    // Calculate angle between nodes
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI)
+    
+    let sourceHandle: string | null = null
+    let targetHandle: string | null = null
+    
+    // For multiple edges between same nodes, distribute across different connection points
+    if (totalEdges > 1) {
+      const connectionPointPairs = [
+        { source: 'source-right', target: 'target-left' },
+        { source: 'source-bottom', target: 'target-top' },
+        { source: 'source-left', target: 'target-right' },
+        { source: 'source-top', target: 'target-bottom' },
+        { source: 'source-top', target: 'target-right' },
+        { source: 'source-right', target: 'target-bottom' },
+        { source: 'source-bottom', target: 'target-left' },
+        { source: 'source-left', target: 'target-top' }
+      ]
+      
+      const pairIndex = edgeIndex % connectionPointPairs.length
+      const pair = connectionPointPairs[pairIndex]
+      sourceHandle = pair.source
+      targetHandle = pair.target
+    } else {
+      // Single edge - choose optimal connection points based on node positions
+      if (Math.abs(dx) > Math.abs(dy)) {
+        // Horizontal connection preferred
+        sourceHandle = dx > 0 ? 'source-right' : 'source-left'
+        targetHandle = dx > 0 ? 'target-left' : 'target-right'
+      } else {
+        // Vertical connection preferred
+        sourceHandle = dy > 0 ? 'source-bottom' : 'source-top'
+        targetHandle = dy > 0 ? 'target-top' : 'target-bottom'
+      }
+    }
+    
+    return { sourceHandle, targetHandle }
+  }, [])
+
+  // Enhanced bidirectional edge calculation
+  const calculateBidirectionalEdgeInfo = useCallback((transition: Transition, allTransitions: Transition[]) => {
+    const isSelfLoop = transition.from === transition.to
+    if (isSelfLoop) return { isBidirectional: false, edgeGroup: [], edgeIndex: 0, totalEdges: 1, curveDirection: 0 }
+
+    // Find all transitions between the same two nodes (bidirectional)
+    const nodeA = transition.from
+    const nodeB = transition.to
+    
+    const edgeGroup = allTransitions.filter(t => 
+      (t.from === nodeA && t.to === nodeB) || (t.from === nodeB && t.to === nodeA)
+    )
+    
+    const isBidirectional = edgeGroup.some(t => t.from === nodeB && t.to === nodeA) && 
+                           edgeGroup.some(t => t.from === nodeA && t.to === nodeB)
+    
+    // Find index of current transition within its directional group
+    const sameDirectionEdges = edgeGroup.filter(t => t.from === transition.from && t.to === transition.to)
+    const edgeIndex = sameDirectionEdges.findIndex(t => t.id === transition.id)
+    
+    // Calculate curve direction for bidirectional edges
+    let curveDirection = 0
+    if (isBidirectional) {
+      const forwardEdges = edgeGroup.filter(t => t.from === nodeA && t.to === nodeB)
+      const reverseEdges = edgeGroup.filter(t => t.from === nodeB && t.to === nodeA)
+      
+      if (transition.from === nodeA) {
+        // Forward direction - curve upward (positive)
+        curveDirection = 1 + edgeIndex * 0.3
+      } else {
+        // Reverse direction - curve downward (negative)  
+        curveDirection = -(1 + edgeIndex * 0.3)
+      }
+    } else if (sameDirectionEdges.length > 1) {
+      // Multiple edges in same direction - distribute curves
+      curveDirection = (edgeIndex - (sameDirectionEdges.length - 1) / 2) * 0.8
+    }
+    
+    return {
+      isBidirectional,
+      edgeGroup,
+      edgeIndex,
+      totalEdges: sameDirectionEdges.length,
+      curveDirection,
+      sameDirectionCount: sameDirectionEdges.length
+    }
+  }, [])
+
+  // Convert transitions to React Flow edges with enhanced bidirectional routing
   const initialEdges: Edge[] = useMemo(() => {
     // Group transitions by source-target pair to handle multiple edges
     const transitionGroups = new Map<string, Transition[]>()
@@ -181,34 +279,67 @@ export function AutomataFlow({
     transitionGroups.forEach((transitions, key) => {
       transitions.forEach((transition, index) => {
         const isSelfLoop = transition.from === transition.to
-        const isMultiple = transitions.length > 1
+        
+        // Get bidirectional edge information
+        const bidirectionalInfo = calculateBidirectionalEdgeInfo(transition, automata.transitions)
+        
+        // Get source and target states for connection point calculation
+        const fromState = automata.states.find(s => s.id === transition.from)
+        const toState = automata.states.find(s => s.id === transition.to)
+        
+        let sourceHandle: string | null = null
+        let targetHandle: string | null = null
+        
+        // Calculate optimal connection points for non-self-loop edges
+        if (fromState && toState && !isSelfLoop) {
+          // For bidirectional edges, use consistent connection points
+          if (bidirectionalInfo.isBidirectional) {
+            // Use center connections for bidirectional to allow proper curvature
+            sourceHandle = null
+            targetHandle = null
+          } else {
+            const connectionPoints = calculateOptimalConnectionPoints(fromState, toState, index, transitions.length)
+            sourceHandle = connectionPoints.sourceHandle
+            targetHandle = connectionPoints.targetHandle
+          }
+        }
         
         // Calculate offset for multiple edges between same nodes
         let pathOffset = 0
-        if (isMultiple && !isSelfLoop) {
-          const totalEdges = transitions.length
-          const edgeIndex = index
-          // Spread edges around the center
-          pathOffset = (edgeIndex - (totalEdges - 1) / 2) * 20
+        if (!isSelfLoop) {
+          if (bidirectionalInfo.isBidirectional) {
+            // Use curve direction for bidirectional edges with balanced spacing
+            pathOffset = bidirectionalInfo.curveDirection * 40 // Balanced spacing
+          } else if (transitions.length > 1 && !sourceHandle) {
+            // Standard multiple edge offset with balanced spacing
+            pathOffset = (index - (transitions.length - 1) / 2) * 30 // Balanced offset
+          }
         }
         
-        // For self-loops, vary the radius and position
+        // For self-loops, compact spacing for smaller loops
         let selfLoopOffset = 0
-        if (isSelfLoop && isMultiple) {
-          selfLoopOffset = index * 15 // Offset each self-loop
+        if (isSelfLoop && transitions.length > 1) {
+          selfLoopOffset = index * 20 // Compact spacing for smaller self-loops
         }
 
         edges.push({
           id: transition.id,
           source: transition.from,
           target: transition.to,
+          sourceHandle,
+          targetHandle,
           type: 'transitionEdge',
           data: {
             transition,
             pathOffset,
             selfLoopOffset,
-            edgeIndex: index,
-            totalEdges: transitions.length,
+            edgeIndex: bidirectionalInfo.edgeIndex,
+            totalEdges: bidirectionalInfo.totalEdges,
+            sourceHandle,
+            targetHandle,
+            isBidirectional: bidirectionalInfo.isBidirectional,
+            curveDirection: bidirectionalInfo.curveDirection,
+            sameDirectionCount: bidirectionalInfo.sameDirectionCount,
             onUpdate: (updatedTransition: Transition) => {
               const updatedTransitions = automata.transitions.map((t) =>
                 t.id === transition.id ? updatedTransition : t
@@ -227,18 +358,25 @@ export function AutomataFlow({
             },
           },
           label: transition.symbol,
-          labelBgStyle: { fill: '#ffffff', fillOpacity: 0.8 },
+          labelBgStyle: { fill: '#ffffff', fillOpacity: 0.9 },
           labelStyle: { fontSize: 12, fontWeight: 600 },
-          // Add curvature for multiple edges
-          style: isMultiple && !isSelfLoop ? { 
-            strokeDasharray: index % 2 === 1 ? '5,5' : undefined // Alternate dash patterns
-          } : {},
+          // Enhanced styling for bidirectional and multiple edges
+          style: { 
+            strokeDasharray: bidirectionalInfo.isBidirectional && bidirectionalInfo.edgeIndex % 2 === 1 ? '6,3' : 
+                           (bidirectionalInfo.sameDirectionCount || 1) > 1 && bidirectionalInfo.edgeIndex % 2 === 1 ? '8,4' : undefined,
+            strokeWidth: bidirectionalInfo.isBidirectional ? 2.5 : (bidirectionalInfo.sameDirectionCount || 1) > 1 ? 2 : 1.8,
+            stroke: bidirectionalInfo.isBidirectional ? 
+                   (bidirectionalInfo.curveDirection > 0 ? '#3b82f6' : '#ef4444') : // Blue for forward, red for reverse
+                   (bidirectionalInfo.sameDirectionCount || 1) > 1 && bidirectionalInfo.edgeIndex > 0 ? 
+                   `hsl(${(bidirectionalInfo.edgeIndex * 60) % 360}, 70%, 50%)` : '#374151',
+            opacity: 0.85
+          },
         })
       })
     })
 
     return edges
-  }, [automata.transitions, automata, onAutomataChange])
+  }, [automata.transitions, automata.states, automata, onAutomataChange, calculateOptimalConnectionPoints, calculateBidirectionalEdgeInfo])
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
@@ -407,7 +545,7 @@ export function AutomataFlow({
               })
             }
             setSelectedNodeForConnection(null)
-            onStateSelect?.(null)
+            onStateSelect?.(undefined)
           }
           break
       }
@@ -552,7 +690,7 @@ export function AutomataFlow({
         </Panel>
 
         {/* Info panel */}
-        <Panel position="top-left" className="bg-white/95 dark:bg-gray-800/95 rounded-lg p-3 text-sm shadow-lg border border-gray-200 dark:border-gray-600 mt-16 ml-4">
+        <Panel position="bottom-left" className="bg-white/95 dark:bg-gray-800/95 rounded-lg p-3 text-sm shadow-lg border border-gray-200 dark:border-gray-600 mb-4 ml-4">
           <div className="space-y-2">
             {/* Stats */}
             <div className="space-y-1">

@@ -16,13 +16,17 @@ interface AutomataEditorProps {
   onAutomataChange: (automata: Automata) => void
   onSimulate: (input: string) => void
   isSimulating: boolean
+  validationWarnings?: string[]
+  validationErrors?: string[]
 }
 
 export function AutomataEditor({ 
   automata, 
   onAutomataChange, 
   onSimulate, 
-  isSimulating 
+  isSimulating,
+  validationWarnings = [],
+  validationErrors = []
 }: AutomataEditorProps) {
   const [selectedState, setSelectedState] = useState<string | null>(null)
   const [inputString, setInputString] = useState('')
@@ -33,6 +37,10 @@ export function AutomataEditor({
   const [editingTransition, setEditingTransition] = useState<Transition | null>(null)
   const [editingState, setEditingState] = useState<State | null>(null)
   const [mode, setMode] = useState<'select' | 'addState' | 'addTransition'>('select')
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const [draggedState, setDraggedState] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   
   // Formal Language System State
   const [problemDescription, setProblemDescription] = useState('')
@@ -415,22 +423,39 @@ export function AutomataEditor({
         return generateRegexDFA(parsedProblem.value, parsedProblem.alphabet)
       case 'specific_set':
         return generateSpecificSetDFA(parsedProblem.value, parsedProblem.alphabet)
+      case 'alternating':
+        return generateAlternatingDFA(parsedProblem.symbol1, parsedProblem.symbol2, parsedProblem.alphabet)
+      case 'palindrome':
+        return generatePalindromeDFA(parsedProblem.alphabet)
+      case 'count_multiple':
+        return generateCountMultipleDFA(parsedProblem.symbol, parsedProblem.multiple, parsedProblem.alphabet)
       default:
         throw new Error(`Unsupported problem type: ${parsedProblem.type}`)
     }
   }, [])
   
   const generateLengthDFA = (length: number, alphabet: string[]): Automata => {
-    const states = []
-    const transitions = []
+    // Input validation
+    if (!Number.isInteger(length) || length < 0) {
+      throw new Error('Length must be a non-negative integer')
+    }
+    if (!alphabet || alphabet.length === 0) {
+      throw new Error('Alphabet cannot be empty')
+    }
+    if (length > 20) {
+      throw new Error('Length too large for visualization (max 20)')
+    }
     
-    // Create states q0, q1, ..., q_length, q_reject
+    const states = []
+    const transitions: Transition[] = []
+    
+    // Create states q0, q1, ..., q_length, q_reject with improved layout
     for (let i = 0; i <= length + 1; i++) {
       states.push({
         id: `q${i}`,
         name: `q${i}`,
-        x: 100 + i * 120,
-        y: 200,
+        x: 150 + (i * 140), // Better spacing
+        y: 250 + (i % 2 === 0 ? 0 : 60), // Zigzag pattern for better visual flow
         isInitial: i === 0,
         isFinal: i === length
       })
@@ -486,17 +511,28 @@ export function AutomataEditor({
   }
   
   const generateEndingWithDFA = (pattern: string, alphabet: string[]): Automata => {
+    // Input validation
+    if (!pattern || pattern.length === 0) {
+      throw new Error('Pattern cannot be empty')
+    }
+    if (!alphabet || alphabet.length === 0) {
+      throw new Error('Alphabet cannot be empty')
+    }
+    if (pattern.length > 10) {
+      throw new Error('Pattern too long for visualization (max 10 characters)')
+    }
+    
     const states = []
-    const transitions = []
+    const transitions: Transition[] = []
     const patternLength = pattern.length
     
-    // Create states for pattern matching
+    // Create states for pattern matching with improved layout
     for (let i = 0; i <= patternLength; i++) {
       states.push({
         id: `q${i}`,
         name: `q${i}`,
-        x: 100 + i * 120,
-        y: 200,
+        x: 150 + (i * 140), // Better spacing
+        y: 250 + Math.sin(i * 0.5) * 40, // Smooth wave pattern
         isInitial: i === 0,
         isFinal: i === patternLength
       })
@@ -577,7 +613,7 @@ export function AutomataEditor({
   
   const generateStartingWithDFA = (pattern: string, alphabet: string[]): Automata => {
     const states = []
-    const transitions = []
+    const transitions: Transition[] = []
     
     // Create states
     states.push({
@@ -673,7 +709,7 @@ export function AutomataEditor({
   
   const generateContainingDFA = (pattern: string, alphabet: string[]): Automata => {
     const states = []
-    const transitions = []
+    const transitions: Transition[] = []
     
     // States for pattern matching + accept state
     for (let i = 0; i <= pattern.length; i++) {
@@ -751,22 +787,22 @@ export function AutomataEditor({
       {
         id: 'q0',
         name: 'q0',
-        x: 150,
-        y: 200,
+        x: 200,
+        y: 250,
         isInitial: true,
         isFinal: parity === 'even'
       },
       {
         id: 'q1',
         name: 'q1',
-        x: 350,
-        y: 200,
+        x: 400,
+        y: 250,
         isInitial: false,
         isFinal: parity === 'odd'
       }
     ]
     
-    const transitions = []
+    const transitions: Transition[] = []
     
     alphabet.forEach(char => {
       if (char === symbol) {
@@ -815,16 +851,118 @@ export function AutomataEditor({
       updatedAt: new Date()
     }
   }
+
+  // ===============================
+  // ENHANCED GENERATOR ROUTER
+  // ===============================
   
-  const generateDFAFromDescription = useCallback(async (description: string) => {
+  const generateAutomataFromDescription = (description: string, type: 'DFA' | 'NFA' | 'TM' | 'REGEX'): Automata => {
+    const cleanDesc = description.toLowerCase().trim()
+    const alphabet = extractAlphabet(description)
+    
+    switch (type) {
+      case 'NFA':
+        if (cleanDesc.includes('length') && /\d+/.test(cleanDesc)) {
+          const length = parseInt(cleanDesc.match(/\d+/)?.[0] || '2')
+          return generateNFALength(length, alphabet)
+        } else if (cleanDesc.includes('ending') && /[01]+/.test(cleanDesc)) {
+          const pattern = cleanDesc.match(/[01]+/)?.[0] || '01'
+          return generateNFAEndingWith(pattern, alphabet)
+        } else if (cleanDesc.includes('union') && cleanDesc.includes('|')) {
+          const patterns = cleanDesc.match(/[01]+/g) || ['01', '10']
+          return generateNFAUnion(patterns[0], patterns[1], alphabet)
+        } else if (cleanDesc.includes('pattern') && /[01]+/.test(cleanDesc)) {
+          const pattern = cleanDesc.match(/[01]+/)?.[0] || '01'
+          return generateNFAPatternMatching(pattern, alphabet)
+        } else if (cleanDesc.includes('kleene') || cleanDesc.includes('star')) {
+          const pattern = cleanDesc.match(/[01]+/)?.[0] || '01'
+          return generateNFAKleeneStar(pattern, alphabet)
+        } else if (cleanDesc.includes('concatenation') || cleanDesc.includes('concat')) {
+          const patterns = cleanDesc.match(/[01]+/g) || ['01', '10']
+          return generateNFAConcatenation(patterns[0], patterns[1], alphabet)
+        } else {
+          return generateNFALength(2, alphabet)
+        }
+        
+      case 'TM':
+        if (cleanDesc.includes('copy')) {
+          return generateTMCopy(alphabet)
+        } else if (cleanDesc.includes('add') || cleanDesc.includes('addition')) {
+          return generateTMAdd()
+        } else if (cleanDesc.includes('multiply') || cleanDesc.includes('multiplication')) {
+          return generateTMMultiply()
+        } else if (cleanDesc.includes('palindrome')) {
+          return generateTMPalindrome()
+        } else if (cleanDesc.includes('reverse')) {
+          return generateTMReverse()
+        } else {
+          return generateTMCopy(alphabet)
+        }
+        
+      case 'REGEX':
+        if (cleanDesc.includes('kleene') || cleanDesc.includes('star') || /\*/.test(cleanDesc)) {
+          const pattern = cleanDesc.match(/[01]+/)?.[0] || '01'
+          return generateRegexKleeneStar(pattern, alphabet)
+        } else if (cleanDesc.includes('plus') || /\+/.test(cleanDesc)) {
+          const pattern = cleanDesc.match(/[01]+/)?.[0] || '01'
+          return generateRegexPlus(pattern, alphabet)
+        } else if (cleanDesc.includes('union') || cleanDesc.includes('|')) {
+          const patterns = cleanDesc.match(/[01]+/g) || ['01', '10']
+          return generateRegexUnion(patterns[0], patterns[1], alphabet)
+        } else if (cleanDesc.includes('optional') || /\?/.test(cleanDesc)) {
+          const pattern = cleanDesc.match(/[01]+/)?.[0] || '01'
+          return generateRegexOptional(pattern, alphabet)
+        } else if (cleanDesc.includes('group') || /\(/.test(cleanDesc)) {
+          const match = cleanDesc.match(/\([^)]+\)/)
+          if (match) {
+            return generateRegexGrouping(match[0], alphabet)
+          }
+        } else if (cleanDesc.includes('concat') || cleanDesc.includes('concatenation')) {
+          const patterns = cleanDesc.match(/[01]+/g) || ['01', '10']
+          return generateRegexConcatenation(patterns[0], patterns[1], alphabet)
+        } else if (/[01]+/.test(cleanDesc)) {
+          const pattern = cleanDesc.match(/[01]+/)?.[0] || '01'
+          return generateRegexDFA(pattern, alphabet)
+        } else {
+          return generateRegexDFA('.*', alphabet)
+        }
+        
+      case 'DFA':
+      default:
+        // Use existing DFA generators
+        const parsedProblem = analyzeWithAI(cleanDesc, description)
+        if (parsedProblem) {
+          return generateDFAFromParsedProblem(parsedProblem)
+        } else {
+          return generateLengthDFA(2, alphabet)
+        }
+    }
+  }
+  
+  const generateDFAFromDescription = useCallback(async (description: string, type: 'DFA' | 'NFA' | 'TM' | 'REGEX' = 'DFA') => {
     setIsGenerating(true)
     setValidationResult(null)
     
     try {
-      const parsedProblem = parseProblemDescription(description)
-      if (!parsedProblem) {
-        // Provide helpful suggestions based on the input
-        const suggestions = []
+      const generatedAutomata = generateAutomataFromDescription(description, type)
+      onAutomataChange(generatedAutomata)
+      
+      // Auto-generate some test cases
+      const testCases = generateTestCases(description)
+      setTestStrings(testCases.slice(0, 5))
+      
+    } catch (error) {
+      console.error('Error generating automata:', error)
+      
+      // Provide helpful suggestions based on automata type
+      const suggestions = []
+      if (type === 'NFA') {
+        suggestions.push('"NFA length 3"', '"NFA pattern 01"', '"NFA kleene star 01"', '"NFA union 01|10"', '"NFA concatenation 01+10"')
+      } else if (type === 'TM') {
+        suggestions.push('"TM copy machine"', '"TM addition machine"', '"TM multiplication machine"', '"TM palindrome checker"', '"TM reverse string"')
+      } else if (type === 'REGEX') {
+        suggestions.push('"regex 01*"', '"regex 01+"', '"regex (01)*"', '"regex 01|10"', '"regex 01?"', '"regex (01)+"')
+      } else {
         if (description.toLowerCase().includes('length')) {
           suggestions.push('"strings of length 2"')
         }
@@ -840,32 +978,21 @@ export function AutomataEditor({
         if (description.toLowerCase().includes('even') || description.toLowerCase().includes('odd')) {
           suggestions.push('"even number of 0s"')
         }
-        
-        const suggestionText = suggestions.length > 0 
-          ? ` Try examples like: ${suggestions.join(', ')}`
-          : ' Try: "strings of length 2", "strings ending with 01", "strings containing 11", "even number of 0s"'
-        
-        throw new Error('Could not parse the problem description.' + suggestionText)
       }
       
-      const generatedDFA = generateDFAFromParsedProblem(parsedProblem)
-      onAutomataChange(generatedDFA)
+      const suggestionText = suggestions.length > 0 
+        ? ` Try examples like: ${suggestions.join(', ')}`
+        : ` Try: "strings of length 2", "strings ending with 01", "strings containing 11", "even number of 0s"`
       
-      // Auto-generate some test cases
-      const testCases = generateTestCases(description)
-      setTestStrings(testCases.slice(0, 5))
-      
-    } catch (error) {
-      console.error('Error generating DFA:', error)
       setValidationResult({
         isValid: false,
-        message: error instanceof Error ? error.message : 'Failed to generate DFA',
+        message: (error instanceof Error ? error.message : 'Failed to generate automata') + suggestionText,
         score: '0/0'
       })
     } finally {
       setIsGenerating(false)
     }
-  }, [parseProblemDescription, generateDFAFromParsedProblem, onAutomataChange])
+  }, [generateAutomataFromDescription, onAutomataChange])
   
   const generateTestCases = (description: string): string[] => {
     const lowerDesc = description.toLowerCase()
@@ -1098,7 +1225,7 @@ export function AutomataEditor({
       }
     ]
     
-    const transitions = []
+    const transitions: Transition[] = []
     
     // Any symbol from initial state goes to reject
     alphabet.forEach(symbol => {
@@ -1146,7 +1273,7 @@ export function AutomataEditor({
       }
     ]
     
-    const transitions = []
+    const transitions: Transition[] = []
     
     // Self-loop for all symbols
     alphabet.forEach(symbol => {
@@ -1174,7 +1301,7 @@ export function AutomataEditor({
   // Advanced DFA Generators
   const generateLengthMultipleDFA = (divisor: number, alphabet: string[]): Automata => {
     const states = []
-    const transitions = []
+    const transitions: Transition[] = []
     
     // Create states for remainders 0 to divisor-1
     for (let i = 0; i < divisor; i++) {
@@ -1216,7 +1343,7 @@ export function AutomataEditor({
   
   const generateLengthRangeDFA = (min: number, max: number, alphabet: string[]): Automata => {
     const states = []
-    const transitions = []
+    const transitions: Transition[] = []
     
     // Create states for lengths 0 to max+1 (reject state)
     for (let i = 0; i <= max + 1; i++) {
@@ -1269,7 +1396,7 @@ export function AutomataEditor({
   
   const generateLengthMinDFA = (minLength: number, alphabet: string[]): Automata => {
     const states = []
-    const transitions = []
+    const transitions: Transition[] = []
     
     // Create states for lengths 0 to minLength
     for (let i = 0; i <= minLength; i++) {
@@ -1321,7 +1448,7 @@ export function AutomataEditor({
   
   const generateLengthMaxDFA = (maxLength: number, alphabet: string[]): Automata => {
     const states = []
-    const transitions = []
+    const transitions: Transition[] = []
     
     // Create states for lengths 0 to maxLength+1 (reject state)
     for (let i = 0; i <= maxLength + 1; i++) {
@@ -1377,7 +1504,7 @@ export function AutomataEditor({
     // For practical purposes, we'll create a DFA that tracks the difference up to a reasonable bound
     const maxDiff = 10 // Track differences from -10 to +10
     const states = []
-    const transitions = []
+    const transitions: Transition[] = []
     
     for (let diff = -maxDiff; diff <= maxDiff; diff++) {
       const stateId = `q${diff + maxDiff}` // Convert to non-negative index
@@ -1429,7 +1556,7 @@ export function AutomataEditor({
   const generateDifferenceDFA = (symbol1: string, symbol2: string, difference: number, alphabet: string[]): Automata => {
     const maxDiff = Math.abs(difference) + 5
     const states = []
-    const transitions = []
+    const transitions: Transition[] = []
     
     for (let diff = -maxDiff; diff <= maxDiff; diff++) {
       const stateId = `q${diff + maxDiff}`
@@ -1478,7 +1605,7 @@ export function AutomataEditor({
   
   const generateModularDFA = (symbol: string, modulus: number, remainder: number, alphabet: string[]): Automata => {
     const states = []
-    const transitions = []
+    const transitions: Transition[] = []
     
     for (let i = 0; i < modulus; i++) {
       states.push({
@@ -1519,7 +1646,7 @@ export function AutomataEditor({
   const generateSubsequenceDFA = (subsequence: string, alphabet: string[]): Automata => {
     // Simplified subsequence DFA - tracks progress through subsequence
     const states = []
-    const transitions = []
+    const transitions: Transition[] = []
     
     for (let i = 0; i <= subsequence.length; i++) {
       states.push({
@@ -1597,35 +1724,11 @@ export function AutomataEditor({
     }
   }
   
-  const generateRegexDFA = (regex: string, alphabet: string[]): Automata => {
-    // Simplified regex to DFA conversion for basic patterns
-    try {
-      // Handle simple regex patterns
-      if (regex === '.*') {
-        return generateUniversalDFA(alphabet)
-      }
-      if (regex === '') {
-        return generateEmptyStringDFA(alphabet)
-      }
-      if (regex.match(/^[01]+$/)) {
-        return generateContainingDFA(regex, alphabet)
-      }
-      if (regex.match(/^[01]+\*$/)) {
-        const pattern = regex.slice(0, -1)
-        return generateContainingDFA(pattern, alphabet)
-      }
-      
-      // Fallback to universal language
-      return generateUniversalDFA(alphabet)
-    } catch (error) {
-      throw new Error('Complex regex patterns not yet supported')
-    }
-  }
   
   const generateSpecificSetDFA = (strings: string[], alphabet: string[]): Automata => {
     // Create a trie-like DFA for the specific set of strings
     const states = new Map()
-    const transitions = []
+    const transitions: Transition[] = []
     let stateCounter = 0
     
     // Create root state
@@ -1704,6 +1807,1359 @@ export function AutomataEditor({
       states: Array.from(states.values()),
       transitions,
       alphabet,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  // Advanced DFA operations
+  const generateComplementDFA = (originalDFA: Automata): Automata => {
+    // Create complement by flipping all final states
+    const states = originalDFA.states.map(state => ({
+      ...state,
+      isFinal: !state.isFinal
+    }))
+    
+    return {
+      ...originalDFA,
+      states,
+      name: `Complement of ${originalDFA.name || 'DFA'}`
+    }
+  }
+
+  const generateIntersectionDFA = (dfa1: Automata, dfa2: Automata, alphabet: string[]): Automata => {
+    // Simplified intersection - creates product DFA
+    const states: State[] = []
+    const transitions: Transition[] = []
+    let stateCounter = 0
+    
+    // Create product states
+    dfa1.states.forEach(state1 => {
+      dfa2.states.forEach(state2 => {
+        states.push({
+          id: `q${stateCounter}`,
+          name: `(${state1.name},${state2.name})`,
+          x: 150 + (stateCounter % 4) * 120,
+          y: 200 + Math.floor(stateCounter / 4) * 100,
+          isInitial: state1.isInitial && state2.isInitial,
+          isFinal: state1.isFinal && state2.isFinal
+        })
+        stateCounter++
+      })
+    })
+    
+    // Create transitions (simplified - would need proper product construction)
+    alphabet.forEach(symbol => {
+      if (states.length >= 2) {
+        transitions.push({
+          id: generateId(),
+          from: states[0].id,
+          to: states[1].id,
+          symbol,
+          label: symbol
+        })
+      }
+    })
+    
+    return {
+      id: generateId(),
+      name: `Intersection DFA`,
+      states,
+      transitions,
+      alphabet,
+      type: 'DFA',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateUnionDFA = (dfa1: Automata, dfa2: Automata, alphabet: string[]): Automata => {
+    // Simplified union - combines states and transitions
+    const states: State[] = [
+      ...dfa1.states.map((state, index) => ({
+        ...state,
+        id: `q1_${index}`,
+        name: `A_${state.name}`,
+        x: state.x - 100,
+        y: state.y
+      })),
+      ...dfa2.states.map((state, index) => ({
+        ...state,
+        id: `q2_${index}`,
+        name: `B_${state.name}`,
+        x: state.x + 100,
+        y: state.y
+      }))
+    ]
+    
+    const transitions = [
+      ...dfa1.transitions.map(t => ({
+        ...t,
+        id: generateId(),
+        from: `q1_${dfa1.states.findIndex(s => s.id === t.from)}`,
+        to: `q1_${dfa1.states.findIndex(s => s.id === t.to)}`
+      })),
+      ...dfa2.transitions.map(t => ({
+        ...t,
+        id: generateId(),
+        from: `q2_${dfa2.states.findIndex(s => s.id === t.from)}`,
+        to: `q2_${dfa2.states.findIndex(s => s.id === t.to)}`
+      }))
+    ]
+    
+    return {
+      id: generateId(),
+      name: `Union DFA`,
+      states,
+      transitions,
+      alphabet,
+      type: 'DFA',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateMinimalDFA = (originalDFA: Automata): Automata => {
+    // Simplified minimization - removes unreachable states
+    const reachableStates = new Set<string>()
+    const queue = [originalDFA.states.find(s => s.isInitial)?.id || originalDFA.states[0]?.id]
+    
+    if (queue[0]) {
+      reachableStates.add(queue[0])
+      
+      while (queue.length > 0) {
+        const currentState = queue.shift()
+        if (currentState) {
+          originalDFA.transitions
+            .filter(t => t.from === currentState)
+            .forEach(t => {
+              if (!reachableStates.has(t.to)) {
+                reachableStates.add(t.to)
+                queue.push(t.to)
+              }
+            })
+        }
+      }
+    }
+    
+    const minimizedStates = originalDFA.states.filter(s => reachableStates.has(s.id))
+    const minimizedTransitions = originalDFA.transitions.filter(t => 
+      reachableStates.has(t.from) && reachableStates.has(t.to)
+    )
+    
+    return {
+      ...originalDFA,
+      states: minimizedStates,
+      transitions: minimizedTransitions,
+      name: `Minimized ${originalDFA.name || 'DFA'}`
+    }
+  }
+
+  // New advanced DFA generators
+  const generateAlternatingDFA = (symbol1: string, symbol2: string, alphabet: string[]): Automata => {
+    const states = [
+      {
+        id: 'q0',
+        name: 'q0',
+        x: 200,
+        y: 200,
+        isInitial: true,
+        isFinal: true // Empty string is alternating
+      },
+      {
+        id: 'q1',
+        name: 'q1',
+        x: 400,
+        y: 200,
+        isInitial: false,
+        isFinal: false
+      }
+    ]
+    
+    const transitions: Transition[] = []
+    
+    // From q0, symbol1 goes to q1, symbol2 goes to q1
+    // From q1, symbol1 goes to q0, symbol2 goes to q0
+    alphabet.forEach(symbol => {
+      if (symbol === symbol1) {
+        transitions.push({
+          id: generateId(),
+          from: 'q0',
+          to: 'q1',
+          symbol,
+          label: symbol
+        })
+        transitions.push({
+          id: generateId(),
+          from: 'q1',
+          to: 'q0',
+          symbol,
+          label: symbol
+        })
+      } else if (symbol === symbol2) {
+        transitions.push({
+          id: generateId(),
+          from: 'q0',
+          to: 'q1',
+          symbol,
+          label: symbol
+        })
+        transitions.push({
+          id: generateId(),
+          from: 'q1',
+          to: 'q0',
+          symbol,
+          label: symbol
+        })
+      }
+    })
+    
+    return {
+      id: generateId(),
+      name: `Alternating ${symbol1}${symbol2} DFA`,
+      states,
+      transitions,
+      alphabet,
+      type: 'DFA',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generatePalindromeDFA = (alphabet: string[]): Automata => {
+    // Simplified palindrome DFA - only handles even-length palindromes
+    const states: State[] = []
+    const transitions: Transition[] = []
+    const maxLength = 6 // Reasonable limit for visualization
+    
+    // Create states for tracking palindrome progress
+    for (let i = 0; i <= maxLength / 2; i++) {
+      states.push({
+        id: `q${i}`,
+        name: `q${i}`,
+        x: 150 + (i * 100),
+        y: 250,
+        isInitial: i === 0,
+        isFinal: i === 0 // Even-length palindromes
+      })
+    }
+    
+    // Add transitions (simplified - would need proper palindrome logic)
+    alphabet.forEach(symbol => {
+      transitions.push({
+        id: generateId(),
+        from: 'q0',
+        to: 'q1',
+        symbol,
+        label: symbol
+      })
+    })
+    
+    return {
+      id: generateId(),
+      name: 'Palindrome DFA (Even Length)',
+      states,
+      transitions,
+      alphabet,
+      type: 'DFA',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateCountMultipleDFA = (symbol: string, multiple: number, alphabet: string[]): Automata => {
+    const states: State[] = []
+    const transitions: Transition[] = []
+    
+    // Create states for tracking count mod multiple
+    for (let i = 0; i < multiple; i++) {
+      states.push({
+        id: `q${i}`,
+        name: `q${i}`,
+        x: 150 + (i * 120),
+        y: 250 + Math.sin(i * 0.8) * 30,
+        isInitial: i === 0,
+        isFinal: i === 0 // Accept strings where count is multiple of 'multiple'
+      })
+    }
+    
+    // Create transitions
+    alphabet.forEach(char => {
+      if (char === symbol) {
+        // Increment count (move to next state)
+        for (let i = 0; i < multiple; i++) {
+          transitions.push({
+            id: generateId(),
+            from: `q${i}`,
+            to: `q${(i + 1) % multiple}`,
+            symbol: char,
+            label: char
+          })
+        }
+      } else {
+        // Other symbols stay in same state
+        for (let i = 0; i < multiple; i++) {
+          transitions.push({
+            id: generateId(),
+            from: `q${i}`,
+            to: `q${i}`,
+            symbol: char,
+            label: char
+          })
+        }
+      }
+    })
+    
+    return {
+      id: generateId(),
+      name: `Count Multiple of ${multiple} DFA`,
+      states,
+      transitions,
+      alphabet,
+      type: 'DFA',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  // ===============================
+  // ENHANCED NFA (Non-deterministic) GENERATORS
+  // ===============================
+  
+  const generateNFALength = (length: number, alphabet: string[]): Automata => {
+    // Enhanced input validation
+    if (!Number.isInteger(length) || length < 0) {
+      throw new Error('Length must be a non-negative integer')
+    }
+    if (!alphabet || alphabet.length === 0) {
+      throw new Error('Alphabet cannot be empty')
+    }
+    if (length > 15) {
+      throw new Error('Length too large for NFA visualization (max 15)')
+    }
+    
+    const states: State[] = []
+    const transitions: Transition[] = []
+    
+    // Create states with enhanced NFA layout
+    for (let i = 0; i <= length + 2; i++) {
+      const isRejectState = i === length + 1
+      states.push({
+        id: `q${i}`,
+        name: isRejectState ? 'qr' : `q${i}`,
+        x: 150 + (i * 120), // Better spacing
+        y: 250 + Math.sin(i * 0.6) * 40 + (isRejectState ? 80 : 0), // Enhanced wave pattern
+        isInitial: i === 0,
+        isFinal: i === length
+      })
+    }
+    
+    // Create enhanced non-deterministic transitions
+    for (let i = 0; i < length; i++) {
+      alphabet.forEach(symbol => {
+        // Primary transition
+        transitions.push({
+          id: generateId(),
+          from: `q${i}`,
+          to: `q${i + 1}`,
+          symbol,
+          label: symbol
+        })
+        
+        // Non-deterministic alternative transitions
+        if (i < length - 1) {
+          transitions.push({
+            id: generateId(),
+            from: `q${i}`,
+            to: `q${i + 2}`,
+            symbol,
+            label: symbol
+          })
+        }
+        
+        // Epsilon transitions for flexibility
+        transitions.push({
+          id: generateId(),
+          from: `q${i}`,
+          to: `q${i + 1}`,
+          symbol: 'ε',
+          label: 'ε'
+        })
+      })
+      
+      // Self-loop with epsilon for non-determinism
+      transitions.push({
+        id: generateId(),
+        from: `q${i}`,
+        to: `q${i}`,
+        symbol: 'ε',
+        label: 'ε'
+      })
+    }
+    
+    // Add transitions to reject state for invalid inputs
+    alphabet.forEach(symbol => {
+      transitions.push({
+        id: generateId(),
+        from: `q${length}`,
+        to: 'qr',
+        symbol,
+        label: symbol
+      })
+    })
+    
+    return {
+      id: generateId(),
+      name: `Enhanced NFA Length ${length}`,
+      type: 'NFA',
+      states,
+      transitions,
+      alphabet: [...alphabet, 'ε'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateNFAPatternMatching = (pattern: string, alphabet: string[]): Automata => {
+    if (!pattern || pattern.length === 0) {
+      throw new Error('Pattern cannot be empty')
+    }
+    if (pattern.length > 8) {
+      throw new Error('Pattern too long for NFA visualization (max 8 characters)')
+    }
+    
+    const states: State[] = []
+    const transitions: Transition[] = []
+    const patternLength = pattern.length
+    
+    // Create states for pattern matching with enhanced layout
+    for (let i = 0; i <= patternLength + 1; i++) {
+      states.push({
+        id: `q${i}`,
+        name: `q${i}`,
+        x: 150 + (i * 140),
+        y: 250 + Math.cos(i * 0.4) * 50, // Enhanced cosine wave
+        isInitial: i === 0,
+        isFinal: i === patternLength
+      })
+    }
+    
+    // Create sophisticated pattern matching with non-determinism
+    for (let i = 0; i < patternLength; i++) {
+      const expectedSymbol = pattern[i]
+      
+      // Correct symbol transition
+      transitions.push({
+        id: generateId(),
+        from: `q${i}`,
+        to: `q${i + 1}`,
+        symbol: expectedSymbol,
+        label: expectedSymbol
+      })
+      
+      // Non-deterministic transitions for pattern matching
+      alphabet.forEach(symbol => {
+        if (symbol !== expectedSymbol) {
+          // Multiple possible transitions (non-deterministic)
+          transitions.push({
+            id: generateId(),
+            from: `q${i}`,
+            to: `q${0}`, // Reset to start
+            symbol,
+            label: symbol
+          })
+          
+          // Alternative: stay in current state
+          transitions.push({
+            id: generateId(),
+            from: `q${i}`,
+            to: `q${i}`,
+            symbol,
+            label: symbol
+          })
+        }
+      })
+      
+      // Epsilon transitions for flexibility
+      transitions.push({
+        id: generateId(),
+        from: `q${i}`,
+        to: `q${i + 1}`,
+        symbol: 'ε',
+        label: 'ε'
+      })
+      
+      // Backward epsilon transitions for complex matching
+      if (i > 0) {
+        transitions.push({
+          id: generateId(),
+          from: `q${i}`,
+          to: `q${i - 1}`,
+          symbol: 'ε',
+          label: 'ε'
+        })
+      }
+    }
+    
+    return {
+      id: generateId(),
+      name: `Enhanced NFA Pattern: ${pattern}`,
+      type: 'NFA',
+      states,
+      transitions,
+      alphabet: [...alphabet, 'ε'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateNFAKleeneStar = (pattern: string, alphabet: string[]): Automata => {
+    // Create NFA for pattern* using epsilon transitions
+    const baseNFA = generateNFAPatternMatching(pattern, alphabet)
+    
+    // Add Kleene star functionality with epsilon transitions
+    const newTransitions = [...baseNFA.transitions]
+    const newStates = [...baseNFA.states]
+    
+    // Add new start state for Kleene star
+    const newStartState: State = {
+      id: 'qs',
+      name: 'qs',
+      x: 100,
+      y: 250,
+      isInitial: true,
+      isFinal: true // Empty string is accepted
+    }
+    
+    // Update existing start state
+    const updatedStates = newStates.map(state => ({
+      ...state,
+      isInitial: state.id !== 'qs'
+    }))
+    
+    updatedStates.unshift(newStartState)
+    
+    // Epsilon transition from new start to old start
+    newTransitions.push({
+      id: generateId(),
+      from: 'qs',
+      to: baseNFA.states.find(s => s.isInitial)?.id || baseNFA.states[0].id,
+      symbol: 'ε',
+      label: 'ε'
+    })
+    
+    // Epsilon transitions from final states back to start (Kleene star)
+    baseNFA.states.forEach(state => {
+      if (state.isFinal) {
+        newTransitions.push({
+          id: generateId(),
+          from: state.id,
+          to: baseNFA.states.find(s => s.isInitial)?.id || baseNFA.states[0].id,
+          symbol: 'ε',
+          label: 'ε'
+        })
+      }
+    })
+    
+    return {
+      ...baseNFA,
+      states: updatedStates,
+      transitions: newTransitions,
+      name: `Enhanced NFA Kleene Star: ${pattern}*`
+    }
+  }
+
+  const generateNFAConcatenation = (pattern1: string, pattern2: string, alphabet: string[]): Automata => {
+    // Create NFA for pattern1 + pattern2 concatenation
+    const nfa1 = generateNFAPatternMatching(pattern1, alphabet)
+    const nfa2 = generateNFAPatternMatching(pattern2, alphabet)
+    
+    const states: State[] = []
+    const transitions: Transition[] = []
+    
+    // Combine states with proper positioning
+    nfa1.states.forEach((state, index) => {
+      states.push({
+        ...state,
+        id: `q1_${index}`,
+        name: `q1_${index}`,
+        x: state.x - 100,
+        y: state.y,
+        isInitial: index === 0,
+        isFinal: false
+      })
+    })
+    
+    nfa2.states.forEach((state, index) => {
+      states.push({
+        ...state,
+        id: `q2_${index}`,
+        name: `q2_${index}`,
+        x: state.x + 200,
+        y: state.y,
+        isInitial: false,
+        isFinal: index === nfa2.states.length - 1
+      })
+    })
+    
+    // Add concatenation transitions
+    transitions.push({
+      id: generateId(),
+      from: `q1_${nfa1.states.length - 1}`,
+      to: `q2_0`,
+      symbol: 'ε',
+      label: 'ε'
+    })
+    
+    // Add all original transitions with updated IDs
+    nfa1.transitions.forEach(t => {
+      transitions.push({
+        ...t,
+        id: generateId(),
+        from: `q1_${nfa1.states.findIndex(s => s.id === t.from)}`,
+        to: `q1_${nfa1.states.findIndex(s => s.id === t.to)}`
+      })
+    })
+    
+    nfa2.transitions.forEach(t => {
+      transitions.push({
+        ...t,
+        id: generateId(),
+        from: `q2_${nfa2.states.findIndex(s => s.id === t.from)}`,
+        to: `q2_${nfa2.states.findIndex(s => s.id === t.to)}`
+      })
+    })
+    
+    return {
+      id: generateId(),
+      name: `Enhanced NFA Concatenation: ${pattern1} + ${pattern2}`,
+      type: 'NFA',
+      states,
+      transitions,
+      alphabet: [...alphabet, 'ε'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateNFAEndingWith = (pattern: string, alphabet: string[]): Automata => {
+    if (!pattern || pattern.length === 0) {
+      throw new Error('Pattern cannot be empty')
+    }
+    
+    const states: State[] = []
+    const transitions: Transition[] = []
+    const patternLength = pattern.length
+    
+    // Create states for pattern matching with NFA layout
+    for (let i = 0; i <= patternLength; i++) {
+      states.push({
+        id: `q${i}`,
+        name: `q${i}`,
+        x: 150 + (i * 120),
+        y: 200 + Math.cos(i * 0.5) * 40, // Cosine wave for NFA
+        isInitial: i === 0,
+        isFinal: i === patternLength
+      })
+    }
+    
+    // Create non-deterministic pattern matching
+    for (let i = 0; i < patternLength; i++) {
+      const expectedSymbol = pattern[i]
+      
+      // Correct symbol transition
+      transitions.push({
+        id: generateId(),
+        from: `q${i}`,
+        to: `q${i + 1}`,
+        symbol: expectedSymbol,
+        label: expectedSymbol
+      })
+      
+      // Non-deterministic transitions for other symbols
+      alphabet.forEach(symbol => {
+        if (symbol !== expectedSymbol) {
+          transitions.push({
+            id: generateId(),
+            from: `q${i}`,
+            to: `q${0}`, // Reset to start
+            symbol,
+            label: symbol
+          })
+        }
+      })
+      
+      // Epsilon transitions for flexibility
+      transitions.push({
+        id: generateId(),
+        from: `q${i}`,
+        to: `q${i + 1}`,
+        symbol: 'ε',
+        label: 'ε'
+      })
+    }
+    
+    return {
+      id: generateId(),
+      name: `NFA Ending with ${pattern}`,
+      type: 'NFA',
+      states,
+      transitions,
+      alphabet,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateNFAUnion = (pattern1: string, pattern2: string, alphabet: string[]): Automata => {
+    // Create NFA that accepts either pattern1 OR pattern2
+    const states: State[] = []
+    const transitions: Transition[] = []
+    
+    // Start state
+    states.push({
+      id: 'q0',
+      name: 'q0',
+      x: 200,
+      y: 250,
+      isInitial: true,
+      isFinal: false
+    })
+    
+    // Pattern 1 branch
+    for (let i = 1; i <= pattern1.length + 1; i++) {
+      states.push({
+        id: `q1_${i}`,
+        name: `q1_${i}`,
+        x: 100 + (i * 80),
+        y: 150,
+        isInitial: false,
+        isFinal: i === pattern1.length + 1
+      })
+    }
+    
+    // Pattern 2 branch
+    for (let i = 1; i <= pattern2.length + 1; i++) {
+      states.push({
+        id: `q2_${i}`,
+        name: `q2_${i}`,
+        x: 100 + (i * 80),
+        y: 350,
+        isInitial: false,
+        isFinal: i === pattern2.length + 1
+      })
+    }
+    
+    // Epsilon transitions to both branches
+    transitions.push({
+      id: generateId(),
+      from: 'q0',
+      to: 'q1_1',
+      symbol: 'ε',
+      label: 'ε'
+    })
+    
+    transitions.push({
+      id: generateId(),
+      from: 'q0',
+      to: 'q2_1',
+      symbol: 'ε',
+      label: 'ε'
+    })
+    
+    // Pattern 1 transitions
+    for (let i = 0; i < pattern1.length; i++) {
+      transitions.push({
+        id: generateId(),
+        from: `q1_${i + 1}`,
+        to: `q1_${i + 2}`,
+        symbol: pattern1[i],
+        label: pattern1[i]
+      })
+    }
+    
+    // Pattern 2 transitions
+    for (let i = 0; i < pattern2.length; i++) {
+      transitions.push({
+        id: generateId(),
+        from: `q2_${i + 1}`,
+        to: `q2_${i + 2}`,
+        symbol: pattern2[i],
+        label: pattern2[i]
+      })
+    }
+    
+    return {
+      id: generateId(),
+      name: `NFA Union: ${pattern1} | ${pattern2}`,
+      type: 'NFA',
+      states,
+      transitions,
+      alphabet,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  // ===============================
+  // ENHANCED TURING MACHINE GENERATORS
+  // ===============================
+  
+  const generateTMCopy = (alphabet: string[]): Automata => {
+    const states: State[] = [
+      { id: 'q0', name: 'q0', x: 200, y: 200, isInitial: true, isFinal: false },
+      { id: 'q1', name: 'q1', x: 350, y: 200, isInitial: false, isFinal: false },
+      { id: 'q2', name: 'q2', x: 500, y: 200, isInitial: false, isFinal: false },
+      { id: 'q3', name: 'q3', x: 650, y: 200, isInitial: false, isFinal: true }
+    ]
+    
+    const transitions: Transition[] = []
+    
+    // Enhanced copy machine with better error handling
+    alphabet.forEach(symbol => {
+      if (symbol !== 'B') {
+        // Copy symbol to output
+        transitions.push({
+          id: generateId(),
+          from: 'q0',
+          to: 'q0',
+          symbol,
+          label: `${symbol}/${symbol},R`,
+          writeSymbol: symbol,
+          direction: 'R'
+        })
+        
+        // Mark end of input
+        transitions.push({
+          id: generateId(),
+          from: 'q1',
+          to: 'q2',
+          symbol,
+          label: `${symbol}/${symbol},R`,
+          writeSymbol: symbol,
+          direction: 'R'
+        })
+      }
+    })
+    
+    // Transition phases
+    transitions.push({
+      id: generateId(),
+      from: 'q0',
+      to: 'q1',
+      symbol: 'B',
+      label: 'B/B,R',
+      writeSymbol: 'B',
+      direction: 'R'
+    })
+    
+    transitions.push({
+      id: generateId(),
+      from: 'q2',
+      to: 'q3',
+      symbol: 'B',
+      label: 'B/B,S',
+      writeSymbol: 'B',
+      direction: 'S'
+    })
+    
+    return {
+      id: generateId(),
+      name: 'Enhanced TM Copy Machine',
+      type: 'TM',
+      states,
+      transitions,
+      alphabet: [...alphabet, 'B'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateTMAdd = (): Automata => {
+    const states: State[] = [
+      { id: 'q0', name: 'q0', x: 150, y: 200, isInitial: true, isFinal: false },
+      { id: 'q1', name: 'q1', x: 300, y: 200, isInitial: false, isFinal: false },
+      { id: 'q2', name: 'q2', x: 450, y: 200, isInitial: false, isFinal: false },
+      { id: 'q3', name: 'q3', x: 600, y: 200, isInitial: false, isFinal: false },
+      { id: 'q4', name: 'q4', x: 750, y: 200, isInitial: false, isFinal: true }
+    ]
+    
+    const transitions: Transition[] = [
+      // Enhanced addition machine with better logic
+      { id: generateId(), from: 'q0', to: 'q0', symbol: '1', label: '1/1,R', writeSymbol: '1', direction: 'R' },
+      { id: generateId(), from: 'q0', to: 'q1', symbol: '+', label: '+/+ R', writeSymbol: '+', direction: 'R' },
+      
+      { id: generateId(), from: 'q1', to: 'q1', symbol: '1', label: '1/1,R', writeSymbol: '1', direction: 'R' },
+      { id: generateId(), from: 'q1', to: 'q2', symbol: '=', label: '=/=,R', writeSymbol: '=', direction: 'R' },
+      
+      // Calculate result
+      { id: generateId(), from: 'q2', to: 'q2', symbol: '1', label: '1/1,R', writeSymbol: '1', direction: 'R' },
+      { id: generateId(), from: 'q2', to: 'q3', symbol: 'B', label: 'B/1,L', writeSymbol: '1', direction: 'L' },
+      
+      // Finalize
+      { id: generateId(), from: 'q3', to: 'q4', symbol: '1', label: '1/1,S', writeSymbol: '1', direction: 'S' }
+    ]
+    
+    return {
+      id: generateId(),
+      name: 'Enhanced TM Addition Machine',
+      type: 'TM',
+      states,
+      transitions,
+      alphabet: ['1', '+', '=', 'B'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateTMMultiply = (): Automata => {
+    const states: State[] = [
+      { id: 'q0', name: 'q0', x: 150, y: 200, isInitial: true, isFinal: false },
+      { id: 'q1', name: 'q1', x: 300, y: 200, isInitial: false, isFinal: false },
+      { id: 'q2', name: 'q2', x: 450, y: 200, isInitial: false, isFinal: false },
+      { id: 'q3', name: 'q3', x: 600, y: 200, isInitial: false, isFinal: false },
+      { id: 'q4', name: 'q4', x: 750, y: 200, isInitial: false, isFinal: false },
+      { id: 'q5', name: 'q5', x: 900, y: 200, isInitial: false, isFinal: true }
+    ]
+    
+    const transitions: Transition[] = [
+      // Enhanced multiplication machine
+      { id: generateId(), from: 'q0', to: 'q0', symbol: '1', label: '1/1,R', writeSymbol: '1', direction: 'R' },
+      { id: generateId(), from: 'q0', to: 'q1', symbol: '*', label: '*/* R', writeSymbol: '*', direction: 'R' },
+      
+      { id: generateId(), from: 'q1', to: 'q1', symbol: '1', label: '1/1,R', writeSymbol: '1', direction: 'R' },
+      { id: generateId(), from: 'q1', to: 'q2', symbol: '=', label: '=/=,R', writeSymbol: '=', direction: 'R' },
+      
+      // Multiplication logic
+      { id: generateId(), from: 'q2', to: 'q3', symbol: 'B', label: 'B/1,L', writeSymbol: '1', direction: 'L' },
+      { id: generateId(), from: 'q3', to: 'q4', symbol: '1', label: '1/1,R', writeSymbol: '1', direction: 'R' },
+      { id: generateId(), from: 'q4', to: 'q5', symbol: 'B', label: 'B/B,S', writeSymbol: 'B', direction: 'S' }
+    ]
+    
+    return {
+      id: generateId(),
+      name: 'Enhanced TM Multiplication Machine',
+      type: 'TM',
+      states,
+      transitions,
+      alphabet: ['1', '*', '=', 'B'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateTMPalindrome = (): Automata => {
+    const states: State[] = [
+      { id: 'q0', name: 'q0', x: 150, y: 200, isInitial: true, isFinal: false },
+      { id: 'q1', name: 'q1', x: 300, y: 200, isInitial: false, isFinal: false },
+      { id: 'q2', name: 'q2', x: 450, y: 200, isInitial: false, isFinal: false },
+      { id: 'q3', name: 'q3', x: 600, y: 200, isInitial: false, isFinal: false },
+      { id: 'q4', name: 'q4', x: 750, y: 200, isInitial: false, isFinal: false },
+      { id: 'q5', name: 'q5', x: 900, y: 200, isInitial: false, isFinal: true },
+      { id: 'q6', name: 'q6', x: 1050, y: 200, isInitial: false, isFinal: false }
+    ]
+    
+    const transitions: Transition[] = [
+      // Enhanced palindrome checker
+      { id: generateId(), from: 'q0', to: 'q1', symbol: '0', label: '0/B,R', writeSymbol: 'B', direction: 'R' },
+      { id: generateId(), from: 'q0', to: 'q1', symbol: '1', label: '1/B,R', writeSymbol: 'B', direction: 'R' },
+      { id: generateId(), from: 'q0', to: 'q5', symbol: 'B', label: 'B/B,S', writeSymbol: 'B', direction: 'S' },
+      
+      { id: generateId(), from: 'q1', to: 'q1', symbol: '0', label: '0/0,R', writeSymbol: '0', direction: 'R' },
+      { id: generateId(), from: 'q1', to: 'q1', symbol: '1', label: '1/1,R', writeSymbol: '1', direction: 'R' },
+      { id: generateId(), from: 'q1', to: 'q2', symbol: 'B', label: 'B/B,L', writeSymbol: 'B', direction: 'L' },
+      
+      { id: generateId(), from: 'q2', to: 'q3', symbol: '0', label: '0/B,L', writeSymbol: 'B', direction: 'L' },
+      { id: generateId(), from: 'q2', to: 'q6', symbol: '1', label: '1/B,L', writeSymbol: 'B', direction: 'L' },
+      
+      { id: generateId(), from: 'q3', to: 'q4', symbol: 'B', label: 'B/B,R', writeSymbol: 'B', direction: 'R' },
+      { id: generateId(), from: 'q4', to: 'q5', symbol: 'B', label: 'B/B,S', writeSymbol: 'B', direction: 'S' }
+    ]
+    
+    return {
+      id: generateId(),
+      name: 'Enhanced TM Palindrome Checker',
+      type: 'TM',
+      states,
+      transitions,
+      alphabet: ['0', '1', 'B'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateTMReverse = (): Automata => {
+    const states: State[] = [
+      { id: 'q0', name: 'q0', x: 150, y: 200, isInitial: true, isFinal: false },
+      { id: 'q1', name: 'q1', x: 300, y: 200, isInitial: false, isFinal: false },
+      { id: 'q2', name: 'q2', x: 450, y: 200, isInitial: false, isFinal: false },
+      { id: 'q3', name: 'q3', x: 600, y: 200, isInitial: false, isFinal: false },
+      { id: 'q4', name: 'q4', x: 750, y: 200, isInitial: false, isFinal: true }
+    ]
+    
+    const transitions: Transition[] = [
+      // Enhanced string reverser
+      { id: generateId(), from: 'q0', to: 'q0', symbol: '0', label: '0/B,R', writeSymbol: 'B', direction: 'R' },
+      { id: generateId(), from: 'q0', to: 'q0', symbol: '1', label: '1/B,R', writeSymbol: 'B', direction: 'R' },
+      { id: generateId(), from: 'q0', to: 'q1', symbol: 'B', label: 'B/B,L', writeSymbol: 'B', direction: 'L' },
+      
+      { id: generateId(), from: 'q1', to: 'q1', symbol: 'B', label: 'B/B,L', writeSymbol: 'B', direction: 'L' },
+      { id: generateId(), from: 'q1', to: 'q2', symbol: 'B', label: 'B/B,R', writeSymbol: 'B', direction: 'R' },
+      
+      { id: generateId(), from: 'q2', to: 'q3', symbol: 'B', label: 'B/0,R', writeSymbol: '0', direction: 'R' },
+      { id: generateId(), from: 'q3', to: 'q4', symbol: 'B', label: 'B/B,S', writeSymbol: 'B', direction: 'S' }
+    ]
+    
+    return {
+      id: generateId(),
+      name: 'Enhanced TM String Reverser',
+      type: 'TM',
+      states,
+      transitions,
+      alphabet: ['0', '1', 'B'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  // ===============================
+  // ENHANCED REGEX GENERATORS
+  // ===============================
+  
+  const generateRegexDFA = (regex: string, alphabet: string[]): Automata => {
+    // Enhanced regex parser with more pattern support
+    try {
+      if (regex === '.*') {
+        return generateUniversalDFA(alphabet)
+      } else if (regex === '') {
+        return generateEmptyStringDFA(alphabet)
+      } else if (regex.match(/^[01]+$/)) {
+        return generateContainingDFA(regex, alphabet)
+      } else if (regex.match(/^[01]+\*$/)) {
+        const pattern = regex.slice(0, -1)
+        return generateRegexKleeneStar(pattern, alphabet)
+      } else if (regex.match(/^[01]+\+$/)) {
+        const pattern = regex.slice(0, -1)
+        return generateRegexPlus(pattern, alphabet)
+      } else if (regex.includes('|')) {
+        // Handle union (OR) operations
+        const patterns = regex.split('|')
+        if (patterns.length === 2) {
+          return generateRegexUnion(patterns[0], patterns[1], alphabet)
+        }
+      } else if (regex.includes('(') && regex.includes(')')) {
+        // Handle grouping
+        return generateRegexGrouping(regex, alphabet)
+      } else if (regex.match(/^[01]\?$/)) {
+        // Handle optional symbol
+        const symbol = regex[0]
+        return generateRegexOptional(symbol, alphabet)
+      }
+      
+      // Fallback to universal language
+      return generateUniversalDFA(alphabet)
+    } catch (error) {
+      throw new Error(`Enhanced regex pattern not supported: ${regex}`)
+    }
+  }
+
+  const generateRegexKleeneStar = (pattern: string, alphabet: string[]): Automata => {
+    // Enhanced Kleene star implementation
+    const baseDFA = generateContainingDFA(pattern, alphabet)
+    
+    // Add enhanced Kleene star functionality
+    const newTransitions = [...baseDFA.transitions]
+    const newStates = [...baseDFA.states]
+    
+    // Make start state final (empty string accepted)
+    const updatedStates = newStates.map(state => ({
+      ...state,
+      isFinal: state.isInitial || state.isFinal
+    }))
+    
+    // Add self-loops to final states for repetition
+    updatedStates.forEach(state => {
+      if (state.isFinal) {
+        alphabet.forEach(symbol => {
+          newTransitions.push({
+            id: generateId(),
+            from: state.id,
+            to: baseDFA.states.find(s => s.isInitial)?.id || baseDFA.states[0].id,
+            symbol,
+            label: symbol
+          })
+        })
+      }
+    })
+    
+    return {
+      ...baseDFA,
+      states: updatedStates,
+      transitions: newTransitions,
+      name: `Enhanced Regex Kleene Star: ${pattern}*`
+    }
+  }
+
+  const generateRegexPlus = (pattern: string, alphabet: string[]): Automata => {
+    // Enhanced Plus operation (one or more)
+    const baseDFA = generateContainingDFA(pattern, alphabet)
+    
+    const newTransitions = [...baseDFA.transitions]
+    
+    // Add self-loops from final states back to start (like Kleene star but not accepting empty)
+    baseDFA.states.forEach(state => {
+      if (state.isFinal) {
+        alphabet.forEach(symbol => {
+          newTransitions.push({
+            id: generateId(),
+            from: state.id,
+            to: baseDFA.states.find(s => s.isInitial)?.id || baseDFA.states[0].id,
+            symbol,
+            label: symbol
+          })
+        })
+      }
+    })
+    
+    return {
+      ...baseDFA,
+      transitions: newTransitions,
+      name: `Enhanced Regex Plus: ${pattern}+`
+    }
+  }
+
+  const generateRegexUnion = (pattern1: string, pattern2: string, alphabet: string[]): Automata => {
+    // Enhanced union operation using NFA with epsilon transitions
+    const nfa1 = generateNFAPatternMatching(pattern1, alphabet)
+    const nfa2 = generateNFAPatternMatching(pattern2, alphabet)
+    
+    const states: State[] = []
+    const transitions: Transition[] = []
+    
+    // Create new start state
+    const startState: State = {
+      id: 'qs',
+      name: 'qs',
+      x: 100,
+      y: 250,
+      isInitial: true,
+      isFinal: false
+    }
+    states.push(startState)
+    
+    // Add NFA1 states
+    nfa1.states.forEach((state, index) => {
+      states.push({
+        ...state,
+        id: `q1_${index}`,
+        name: `q1_${index}`,
+        x: state.x + 50,
+        y: state.y - 50,
+        isInitial: false,
+        isFinal: index === nfa1.states.length - 1
+      })
+    })
+    
+    // Add NFA2 states
+    nfa2.states.forEach((state, index) => {
+      states.push({
+        ...state,
+        id: `q2_${index}`,
+        name: `q2_${index}`,
+        x: state.x + 50,
+        y: state.y + 50,
+        isInitial: false,
+        isFinal: index === nfa2.states.length - 1
+      })
+    })
+    
+    // Epsilon transitions from start to both NFAs
+    transitions.push({
+      id: generateId(),
+      from: 'qs',
+      to: 'q1_0',
+      symbol: 'ε',
+      label: 'ε'
+    })
+    
+    transitions.push({
+      id: generateId(),
+      from: 'qs',
+      to: 'q2_0',
+      symbol: 'ε',
+      label: 'ε'
+    })
+    
+    // Add all original transitions
+    nfa1.transitions.forEach(t => {
+      transitions.push({
+        ...t,
+        id: generateId(),
+        from: `q1_${nfa1.states.findIndex(s => s.id === t.from)}`,
+        to: `q1_${nfa1.states.findIndex(s => s.id === t.to)}`
+      })
+    })
+    
+    nfa2.transitions.forEach(t => {
+      transitions.push({
+        ...t,
+        id: generateId(),
+        from: `q2_${nfa2.states.findIndex(s => s.id === t.from)}`,
+        to: `q2_${nfa2.states.findIndex(s => s.id === t.to)}`
+      })
+    })
+    
+    return {
+      id: generateId(),
+      name: `Enhanced Regex Union: ${pattern1} | ${pattern2}`,
+      type: 'REGEX',
+      states,
+      transitions,
+      alphabet: [...alphabet, 'ε'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateRegexOptional = (symbol: string, alphabet: string[]): Automata => {
+    // Enhanced optional symbol (0 or 1 occurrence)
+    const states: State[] = [
+      { id: 'q0', name: 'q0', x: 200, y: 200, isInitial: true, isFinal: true },
+      { id: 'q1', name: 'q1', x: 350, y: 200, isInitial: false, isFinal: true }
+    ]
+    
+    const transitions: Transition[] = [
+      {
+        id: generateId(),
+        from: 'q0',
+        to: 'q1',
+        symbol,
+        label: symbol
+      }
+    ]
+    
+    // Epsilon transition for optional (can skip the symbol)
+    transitions.push({
+      id: generateId(),
+      from: 'q0',
+      to: 'q1',
+      symbol: 'ε',
+      label: 'ε'
+    })
+    
+    return {
+      id: generateId(),
+      name: `Enhanced Regex Optional: ${symbol}?`,
+      type: 'REGEX',
+      states,
+      transitions,
+      alphabet: [...alphabet, 'ε'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }
+  }
+
+  const generateRegexGrouping = (regex: string, alphabet: string[]): Automata => {
+    // Enhanced grouping with parentheses
+    try {
+      // Simple grouping: (pattern)
+      const match = regex.match(/^\(([^)]+)\)$/)
+      if (match) {
+        const innerPattern = match[1]
+        return generateRegexDFA(innerPattern, alphabet)
+      }
+      
+      // Grouping with operations: (pattern)*, (pattern)+, (pattern)?
+      const matchWithOp = regex.match(/^\(([^)]+)\)([*+?])$/)
+      if (matchWithOp) {
+        const innerPattern = matchWithOp[1]
+        const operation = matchWithOp[2]
+        
+        switch (operation) {
+          case '*':
+            return generateRegexKleeneStar(innerPattern, alphabet)
+          case '+':
+            return generateRegexPlus(innerPattern, alphabet)
+          case '?':
+            return generateRegexOptional(innerPattern, alphabet)
+        }
+      }
+      
+      // Fallback
+      return generateUniversalDFA(alphabet)
+    } catch (error) {
+      throw new Error(`Grouping pattern not supported: ${regex}`)
+    }
+  }
+
+  const generateRegexConcatenation = (pattern1: string, pattern2: string, alphabet: string[]): Automata => {
+    // Enhanced concatenation using epsilon transitions
+    const nfa1 = generateNFAPatternMatching(pattern1, alphabet)
+    const nfa2 = generateNFAPatternMatching(pattern2, alphabet)
+    
+    const states: State[] = []
+    const transitions: Transition[] = []
+    
+    // Combine states
+    nfa1.states.forEach((state, index) => {
+      states.push({
+        ...state,
+        id: `q1_${index}`,
+        name: `q1_${index}`,
+        x: state.x,
+        y: state.y,
+        isInitial: index === 0,
+        isFinal: false
+      })
+    })
+    
+    nfa2.states.forEach((state, index) => {
+      states.push({
+        ...state,
+        id: `q2_${index}`,
+        name: `q2_${index}`,
+        x: state.x + 200,
+        y: state.y,
+        isInitial: false,
+        isFinal: index === nfa2.states.length - 1
+      })
+    })
+    
+    // Epsilon transition for concatenation
+    transitions.push({
+      id: generateId(),
+      from: `q1_${nfa1.states.length - 1}`,
+      to: 'q2_0',
+      symbol: 'ε',
+      label: 'ε'
+    })
+    
+    // Add all original transitions
+    nfa1.transitions.forEach(t => {
+      transitions.push({
+        ...t,
+        id: generateId(),
+        from: `q1_${nfa1.states.findIndex(s => s.id === t.from)}`,
+        to: `q1_${nfa1.states.findIndex(s => s.id === t.to)}`
+      })
+    })
+    
+    nfa2.transitions.forEach(t => {
+      transitions.push({
+        ...t,
+        id: generateId(),
+        from: `q2_${nfa2.states.findIndex(s => s.id === t.from)}`,
+        to: `q2_${nfa2.states.findIndex(s => s.id === t.to)}`
+      })
+    })
+    
+    return {
+      id: generateId(),
+      name: `Enhanced Regex Concatenation: ${pattern1}${pattern2}`,
+      type: 'REGEX',
+      states,
+      transitions,
+      alphabet: [...alphabet, 'ε'],
       createdAt: new Date(),
       updatedAt: new Date()
     }
@@ -1910,6 +3366,29 @@ export function AutomataEditor({
             
             {showProblemInput && (
               <div className="space-y-3">
+                {/* Automata Type Selector */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Automata Type
+                  </label>
+                  <select 
+                    value={automata.type}
+                    onChange={(e) => onAutomataChange({...automata, type: e.target.value as 'DFA' | 'NFA' | 'TM' | 'REGEX'})}
+                    className="w-full px-2 py-1.5 text-xs border border-border rounded bg-background text-foreground focus:ring-1 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="DFA">DFA (Deterministic Finite Automaton)</option>
+                    <option value="NFA">NFA (Non-deterministic Finite Automaton)</option>
+                    <option value="TM">TM (Turing Machine)</option>
+                    <option value="REGEX">REGEX (Regular Expression)</option>
+                  </select>
+                  <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {automata.type === 'DFA' && '✓ Regular languages ✓ Deterministic transitions'}
+                    {automata.type === 'NFA' && '✓ Epsilon transitions ✓ Non-deterministic paths'}
+                    {automata.type === 'TM' && '✓ Tape operations ✓ Write/Read/Move'}
+                    {automata.type === 'REGEX' && '✓ Pattern matching ✓ Kleene star operations'}
+                  </div>
+                </div>
+
                 {/* Problem Description Input */}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1918,25 +3397,33 @@ export function AutomataEditor({
                   <textarea
                     value={problemDescription}
                     onChange={(e) => setProblemDescription(e.target.value)}
-                    placeholder="Examples: 'strings of length 2', 'strings ending with 01', 'strings containing 11', 'even number of 0s'"
+                    placeholder={
+                      automata.type === 'NFA' ? "Examples: 'NFA length 3', 'NFA pattern 01', 'NFA kleene star 01', 'NFA union 01|10', 'NFA concatenation 01+10'"
+                      : automata.type === 'TM' ? "Examples: 'TM copy machine', 'TM addition machine', 'TM multiplication machine', 'TM palindrome checker', 'TM reverse string'"
+                      : automata.type === 'REGEX' ? "Examples: 'regex 01*', 'regex 01+', 'regex (01)*', 'regex 01|10', 'regex 01?', 'regex (01)+'"
+                      : "Examples: 'strings of length 2', 'strings ending with 01', 'strings containing 11', 'even number of 0s'"
+                    }
                     className="w-full px-2 py-1.5 text-xs border border-border rounded bg-background text-foreground focus:ring-1 focus:ring-primary focus:border-transparent resize-none"
                     rows={2}
                   />
                   <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    ✓ Length patterns ✓ Ending/Starting patterns ✓ Containing patterns ✓ Even/Odd counting
+                    {automata.type === 'NFA' && '✓ Length patterns ✓ Pattern matching ✓ Kleene star ✓ Union ✓ Concatenation ✓ Epsilon transitions'}
+                    {automata.type === 'TM' && '✓ Copy operations ✓ Addition ✓ Multiplication ✓ Palindrome ✓ Reverse ✓ Tape manipulation'}
+                    {automata.type === 'REGEX' && '✓ Kleene star ✓ Plus ✓ Union ✓ Optional ✓ Grouping ✓ Concatenation ✓ Pattern matching'}
+                    {automata.type === 'DFA' && '✓ Length patterns ✓ Ending/Starting patterns ✓ Containing patterns ✓ Even/Odd counting ✓ Advanced operations'}
                   </div>
                 </div>
                 
                 {/* Action Buttons */}
                 <div className="flex flex-col space-y-2">
                   <Button
-                    onClick={() => generateDFAFromDescription(problemDescription)}
+                    onClick={() => generateDFAFromDescription(problemDescription, automata.type)}
                     disabled={!problemDescription.trim() || isGenerating}
                     size="sm"
                     className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-7"
                   >
                     <Wand2 className="h-3 w-3 mr-1" />
-                    {isGenerating ? 'Generating...' : 'Auto-Generate'}
+                    {isGenerating ? 'Generating...' : `Generate ${automata.type}`}
                   </Button>
                   
                   <Button
@@ -2085,8 +3572,8 @@ export function AutomataEditor({
         <AutomataFlow
           automata={automata}
           onAutomataChange={onAutomataChange}
-          selectedState={selectedState}
-          onStateSelect={setSelectedState}
+          selectedState={selectedState || undefined}
+          onStateSelect={(stateId) => setSelectedState(stateId || null)}
           onStateDoubleClick={(stateId) => {
             const state = automata.states.find(s => s.id === stateId)
             if (state) {

@@ -91,78 +91,102 @@ export const StateNode = memo(({ data, selected }: NodeProps<StateNodeData>) => 
         )}
       </div>
 
-      {/* Connection handles - More visible and user-friendly */}
+      {/* Enhanced 4-point connection handles for better edge management */}
       <Handle
         type="target"
         position={Position.Top}
+        id="target-top"
         className={cn(
           "w-3 h-3 border-2 border-blue-500 bg-blue-100 rounded-full transition-all duration-200",
-          "hover:w-4 hover:h-4 hover:bg-blue-200 hover:border-blue-600",
-          isHovered || selected || isSelected ? "opacity-100" : "opacity-60"
+          "hover:w-4 hover:h-4 hover:bg-blue-200 hover:border-blue-600 hover:shadow-md",
+          "focus:outline-none focus:ring-2 focus:ring-blue-300",
+          isHovered || selected || isSelected ? "opacity-100 scale-110" : "opacity-70",
+          connectionMode && "opacity-100 animate-pulse"
         )}
       />
       <Handle
         type="target"
         position={Position.Left}
+        id="target-left"
         className={cn(
           "w-3 h-3 border-2 border-blue-500 bg-blue-100 rounded-full transition-all duration-200",
-          "hover:w-4 hover:h-4 hover:bg-blue-200 hover:border-blue-600",
-          isHovered || selected || isSelected ? "opacity-100" : "opacity-60"
+          "hover:w-4 hover:h-4 hover:bg-blue-200 hover:border-blue-600 hover:shadow-md",
+          "focus:outline-none focus:ring-2 focus:ring-blue-300",
+          isHovered || selected || isSelected ? "opacity-100 scale-110" : "opacity-70",
+          connectionMode && "opacity-100 animate-pulse"
         )}
       />
       <Handle
         type="target"
         position={Position.Right}
+        id="target-right"
         className={cn(
           "w-3 h-3 border-2 border-blue-500 bg-blue-100 rounded-full transition-all duration-200",
-          "hover:w-4 hover:h-4 hover:bg-blue-200 hover:border-blue-600",
-          isHovered || selected || isSelected ? "opacity-100" : "opacity-60"
+          "hover:w-4 hover:h-4 hover:bg-blue-200 hover:border-blue-600 hover:shadow-md",
+          "focus:outline-none focus:ring-2 focus:ring-blue-300",
+          isHovered || selected || isSelected ? "opacity-100 scale-110" : "opacity-70",
+          connectionMode && "opacity-100 animate-pulse"
         )}
       />
       <Handle
         type="target"
         position={Position.Bottom}
+        id="target-bottom"
         className={cn(
           "w-3 h-3 border-2 border-blue-500 bg-blue-100 rounded-full transition-all duration-200",
-          "hover:w-4 hover:h-4 hover:bg-blue-200 hover:border-blue-600",
-          isHovered || selected || isSelected ? "opacity-100" : "opacity-60"
+          "hover:w-4 hover:h-4 hover:bg-blue-200 hover:border-blue-600 hover:shadow-md",
+          "focus:outline-none focus:ring-2 focus:ring-blue-300",
+          isHovered || selected || isSelected ? "opacity-100 scale-110" : "opacity-70",
+          connectionMode && "opacity-100 animate-pulse"
         )}
       />
 
       <Handle
         type="source"
         position={Position.Top}
+        id="source-top"
         className={cn(
           "w-3 h-3 border-2 border-orange-500 bg-orange-100 rounded-full transition-all duration-200",
-          "hover:w-4 hover:h-4 hover:bg-orange-200 hover:border-orange-600",
-          isHovered || selected || isSelected ? "opacity-100" : "opacity-60"
+          "hover:w-4 hover:h-4 hover:bg-orange-200 hover:border-orange-600 hover:shadow-md",
+          "focus:outline-none focus:ring-2 focus:ring-orange-300",
+          isHovered || selected || isSelected ? "opacity-100 scale-110" : "opacity-70",
+          connectionMode && "opacity-100 animate-pulse"
         )}
       />
       <Handle
         type="source"
         position={Position.Left}
+        id="source-left"
         className={cn(
           "w-3 h-3 border-2 border-orange-500 bg-orange-100 rounded-full transition-all duration-200",
-          "hover:w-4 hover:h-4 hover:bg-orange-200 hover:border-orange-600",
-          isHovered || selected || isSelected ? "opacity-100" : "opacity-60"
+          "hover:w-4 hover:h-4 hover:bg-orange-200 hover:border-orange-600 hover:shadow-md",
+          "focus:outline-none focus:ring-2 focus:ring-orange-300",
+          isHovered || selected || isSelected ? "opacity-100 scale-110" : "opacity-70",
+          connectionMode && "opacity-100 animate-pulse"
         )}
       />
       <Handle
         type="source"
         position={Position.Right}
+        id="source-right"
         className={cn(
           "w-3 h-3 border-2 border-orange-500 bg-orange-100 rounded-full transition-all duration-200",
-          "hover:w-4 hover:h-4 hover:bg-orange-200 hover:border-orange-600",
-          isHovered || selected || isSelected ? "opacity-100" : "opacity-60"
+          "hover:w-4 hover:h-4 hover:bg-orange-200 hover:border-orange-600 hover:shadow-md",
+          "focus:outline-none focus:ring-2 focus:ring-orange-300",
+          isHovered || selected || isSelected ? "opacity-100 scale-110" : "opacity-70",
+          connectionMode && "opacity-100 animate-pulse"
         )}
       />
       <Handle
         type="source"
         position={Position.Bottom}
+        id="source-bottom"
         className={cn(
           "w-3 h-3 border-2 border-orange-500 bg-orange-100 rounded-full transition-all duration-200",
-          "hover:w-4 hover:h-4 hover:bg-orange-200 hover:border-orange-600",
-          isHovered || selected || isSelected ? "opacity-100" : "opacity-60"
+          "hover:w-4 hover:h-4 hover:bg-orange-200 hover:border-orange-600 hover:shadow-md",
+          "focus:outline-none focus:ring-2 focus:ring-orange-300",
+          isHovered || selected || isSelected ? "opacity-100 scale-110" : "opacity-70",
+          connectionMode && "opacity-100 animate-pulse"
         )}
       />
 

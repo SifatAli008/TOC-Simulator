@@ -20,6 +20,11 @@ interface TransitionEdgeData {
   selfLoopOffset?: number
   edgeIndex?: number
   totalEdges?: number
+  sourceHandle?: string | null
+  targetHandle?: string | null
+  isBidirectional?: boolean
+  curveDirection?: number
+  sameDirectionCount?: number
 }
 
 export const TransitionEdge = memo(({
@@ -35,8 +40,26 @@ export const TransitionEdge = memo(({
   source,
   target,
 }: EdgeProps<TransitionEdgeData>) => {
-  const { transition, onUpdate, onDelete, pathOffset = 0, selfLoopOffset = 0, edgeIndex = 0, totalEdges = 1 } = data
+  const { 
+    transition, 
+    onUpdate, 
+    onDelete, 
+    pathOffset = 0, 
+    selfLoopOffset = 0, 
+    edgeIndex = 0, 
+    totalEdges = 1,
+    sourceHandle,
+    targetHandle,
+    isBidirectional = false,
+    curveDirection = 0,
+    sameDirectionCount = 1
+  } = data || {}
   const { setCenter } = useReactFlow()
+
+  // Guard clause - if no data or transition, render nothing
+  if (!data || !transition) {
+    return null
+  }
 
   // Check if this is a self-loop
   const isSelfLoop = source === target
@@ -46,14 +69,19 @@ export const TransitionEdge = memo(({
   let labelY: number
 
   if (isSelfLoop) {
-    // Create a circular path for self-loops with offset for multiple loops
-    const baseRadius = 30
-    const radius = baseRadius + selfLoopOffset
-    const angle = (edgeIndex * 60) - 30 // Vary angle for multiple self-loops (-30°, 30°, 90°, etc.)
+    // Create smaller, well-spaced self-loops
+    const baseRadius = 25 // Smaller base radius for compact loops
+    const radiusIncrement = 20 // Moderate spacing between loops
+    const radius = baseRadius + (selfLoopOffset * 2) + (edgeIndex * radiusIncrement)
+    
+    // Optimal angle distribution for multiple self-loops
+    const angleStep = 72 // 72° between loops (5 loops max around circle)
+    const angle = (edgeIndex * angleStep) // Distribute evenly around node
     const angleRad = (angle * Math.PI) / 180
     
-    const offsetX = Math.cos(angleRad) * 20
-    const offsetY = Math.sin(angleRad) * 20
+    // Moderate offset for compact but separated loops
+    const offsetX = Math.cos(angleRad) * 25
+    const offsetY = Math.sin(angleRad) * 25
     
     const centerX = sourceX + offsetX
     const centerY = sourceY - radius + offsetY
@@ -66,49 +94,179 @@ export const TransitionEdge = memo(({
                   ${centerX - radius} ${sourceY - 8}, 
                   ${sourceX - 8} ${sourceY - 8}`
     
-    labelX = centerX
-    labelY = centerY - 10
-  } else {
-    // Use bezier path with offset for multiple edges between same nodes
-    const result = getBezierPath({
-      sourceX,
-      sourceY,
-      sourcePosition,
-      targetX,
-      targetY,
-      targetPosition,
-    })
+    // Compact self-loop label positioning - close but separated
+    const labelRadius = radius + 12 // Close to smaller loop
+    const labelAngle = angleRad + (edgeIndex * Math.PI/5) // 36° separation for tighter spacing
     
-    // Apply path offset for multiple edges
-    if (pathOffset !== 0) {
-      const midX = (sourceX + targetX) / 2
-      const midY = (sourceY + targetY) / 2
+    labelX = centerX + (Math.cos(labelAngle) * labelRadius)
+    labelY = centerY + (Math.sin(labelAngle) * labelRadius)
+  } else {
+    // Enhanced bezier path calculation with bidirectional edge support
+    let curvature = 0.2
+    
+    // Special handling for bidirectional edges
+    if (isBidirectional) {
+      // Use pathOffset directly for bidirectional curves (already calculated with proper direction)
+      curvature = Math.abs(pathOffset) / 100 // Convert pathOffset to curvature
+      curvature = Math.max(0.3, Math.min(1.2, curvature)) // Clamp between 0.3 and 1.2
       
-      // Calculate perpendicular offset
-      const dx = targetX - sourceX
-      const dy = targetY - sourceY
-      const length = Math.sqrt(dx * dx + dy * dy)
-      
-      if (length > 0) {
-        const perpX = -dy / length
-        const perpY = dx / length
+      // Apply curve direction
+      if (pathOffset !== 0) {
+        const midX = (sourceX + targetX) / 2
+        const midY = (sourceY + targetY) / 2
         
-        const offsetMidX = midX + perpX * pathOffset
-        const offsetMidY = midY + perpY * pathOffset
+        // Calculate perpendicular offset for bidirectional separation
+        const dx = targetX - sourceX
+        const dy = targetY - sourceY
+        const length = Math.sqrt(dx * dx + dy * dy)
         
-        // Create custom bezier with offset
-        edgePath = `M ${sourceX} ${sourceY} Q ${offsetMidX} ${offsetMidY} ${targetX} ${targetY}`
-        labelX = offsetMidX
-        labelY = offsetMidY - 15
+        if (length > 0) {
+          const perpX = -dy / length
+          const perpY = dx / length
+          
+          const offsetMidX = midX + perpX * pathOffset
+          const offsetMidY = midY + perpY * pathOffset
+          
+          // Create smooth quadratic curve for bidirectional edges
+          edgePath = `M ${sourceX} ${sourceY} Q ${offsetMidX} ${offsetMidY} ${targetX} ${targetY}`
+          
+          // Bidirectional edge label positioning - alternating sides with separation
+          const edgeAngle = Math.atan2(targetY - sourceY, targetX - sourceX)
+          const labelDistance = 30 + (edgeIndex * 20) // Progressive distance
+          
+          // Alternate sides and add vertical separation
+          const curveDirection = pathOffset > 0 ? 1 : -1
+          const sideMultiplier = edgeIndex % 2 === 0 ? 1 : -1 // Alternate sides
+          const labelAngle = edgeAngle + (Math.PI/2 * curveDirection * sideMultiplier)
+          
+          const labelOffsetX = Math.cos(labelAngle) * labelDistance
+          const labelOffsetY = Math.sin(labelAngle) * labelDistance - (edgeIndex * 20) // Vertical separation
+          
+          labelX = offsetMidX + labelOffsetX
+          labelY = offsetMidY + labelOffsetY
+        } else {
+          const result = getBezierPath({
+            sourceX,
+            sourceY,
+            sourcePosition,
+            targetX,
+            targetY,
+            targetPosition,
+            curvature,
+          })
+          edgePath = result[0]
+          labelX = result[1]
+          labelY = result[2]
+        }
       } else {
+        // Fallback to standard bezier
+        const result = getBezierPath({
+          sourceX,
+          sourceY,
+          sourcePosition,
+          targetX,
+          targetY,
+          targetPosition,
+          curvature,
+        })
         edgePath = result[0]
         labelX = result[1]
         labelY = result[2]
       }
     } else {
-      edgePath = result[0]
-      labelX = result[1]
-      labelY = result[2]
+      // Standard edge handling (non-bidirectional)
+      if (sameDirectionCount > 1) {
+        curvature = 0.25 + Math.abs(pathOffset) * 0.01
+      }
+      
+      // Reduce curvature when using specific connection points
+      if (sourceHandle && targetHandle) {
+        curvature = Math.max(0.1, curvature * 0.7)
+      }
+      
+      const result = getBezierPath({
+        sourceX,
+        sourceY,
+        sourcePosition,
+        targetX,
+        targetY,
+        targetPosition,
+        curvature,
+      })
+      
+      // Apply path offset for multiple edges when not using specific connection points
+      if (pathOffset !== 0 && (!sourceHandle || !targetHandle)) {
+        const midX = (sourceX + targetX) / 2
+        const midY = (sourceY + targetY) / 2
+        
+        // Calculate perpendicular offset
+        const dx = targetX - sourceX
+        const dy = targetY - sourceY
+        const length = Math.sqrt(dx * dx + dy * dy)
+        
+        if (length > 0) {
+          const perpX = -dy / length
+          const perpY = dx / length
+          
+          const offsetMidX = midX + perpX * pathOffset
+          const offsetMidY = midY + perpY * pathOffset
+          
+          // Create custom bezier with offset
+          edgePath = `M ${sourceX} ${sourceY} Q ${offsetMidX} ${offsetMidY} ${targetX} ${targetY}`
+          // Curved edge label positioning - aligned with curve peak
+          const edgeAngle = Math.atan2(targetY - sourceY, targetX - sourceX)
+          const labelDistance = 20 + (edgeIndex * 12) // Progressive but close distance
+          
+          // Position labels at the curve peak, perpendicular to edge
+          const labelAngle = edgeAngle + Math.PI/2
+          const labelOffsetX = Math.cos(labelAngle) * labelDistance
+          const labelOffsetY = Math.sin(labelAngle) * labelDistance
+          
+          labelX = offsetMidX + labelOffsetX
+          labelY = offsetMidY + labelOffsetY
+        } else {
+          edgePath = result[0]
+          labelX = result[1]
+          labelY = result[2] - 20 // Positioned above edge but aligned
+        }
+      } else {
+        edgePath = result[0]
+        labelX = result[1]
+        labelY = result[2] - 20 // Positioned above edge but aligned
+        
+        // Aggressive label separation to eliminate all overlaps
+        if (sameDirectionCount > 1 && edgeIndex > 0) {
+          const dx = targetX - sourceX
+          const dy = targetY - sourceY
+          const length = Math.sqrt(dx * dx + dy * dy)
+          
+          if (length > 0) {
+            // Calculate perpendicular direction
+            const perpX = -dy / length
+            const perpY = dx / length
+            
+            // Create maximum separation pattern to eliminate all overlaps
+            const separationDistance = 60 * edgeIndex // Maximum separation
+            const verticalSeparation = 40 * edgeIndex // Maximum vertical separation
+            
+            // Alternate sides and create diagonal pattern
+            const side = edgeIndex % 2 === 0 ? 1 : -1
+            const diagonalOffset = edgeIndex * 30
+            
+            // Position labels with extreme separation
+            labelX += perpX * separationDistance * side + diagonalOffset * side
+            labelY -= verticalSeparation // Always move up significantly
+            
+            // Additional corner positioning for very crowded areas
+            if (edgeIndex > 2) {
+              const cornerX = (edgeIndex % 4) * 50 - 100
+              const cornerY = -Math.floor(edgeIndex / 4) * 60
+              labelX += cornerX
+              labelY += cornerY
+            }
+          }
+        }
+      }
     }
   }
 
@@ -120,7 +278,7 @@ export const TransitionEdge = memo(({
   const handleEdit = () => {
     // TODO: Open transition editor
     const newSymbol = prompt('Edit transition symbol:', transition.symbol)
-    if (newSymbol !== null) {
+    if (newSymbol !== null && onUpdate) {
       onUpdate({
         ...transition,
         symbol: newSymbol,
@@ -134,15 +292,11 @@ export const TransitionEdge = memo(({
       <BaseEdge
         id={id}
         path={edgePath}
-        className={`transition-all duration-200 ${
-          selected 
-            ? 'stroke-orange-500 stroke-2' 
-            : 'stroke-gray-600 hover:stroke-blue-500 stroke-1'
-        }`}
-        markerEnd={isSelfLoop ? "url(#arrowhead-self)" : "url(#arrowhead)"}
+        markerEnd="url(#arrowhead)" // Consistent arrow for all edges including self-loops
         style={{
-          strokeDasharray: totalEdges > 1 && edgeIndex % 2 === 1 ? '8,4' : undefined,
-          strokeWidth: selected ? 3 : totalEdges > 1 ? 2 : 1.5,
+          strokeWidth: selected ? 3 : 2, // Consistent width
+          stroke: selected ? '#ff6b35' : '#374151', // Consistent color - only selection changes
+          opacity: 0.9, // Consistent opacity
         }}
       />
       
@@ -152,18 +306,15 @@ export const TransitionEdge = memo(({
             position: 'absolute',
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
             pointerEvents: 'all',
+            zIndex: 1000, // Ensure labels are above edges
           }}
           className="nodrag nopan"
         >
           <div
-            className={`group relative border rounded-md px-2 py-1 text-sm font-medium shadow-lg transition-all duration-200 cursor-pointer ${
+            className={`group relative border-2 rounded-lg px-3 py-2 text-sm font-bold shadow-lg backdrop-blur-sm transition-all duration-200 cursor-pointer ${
               selected 
-                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20 text-orange-800 dark:text-orange-200' 
-                : totalEdges > 1
-                  ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 hover:border-blue-600'
-                  : 'border-gray-300 bg-white dark:bg-gray-800 dark:border-gray-600 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-            } ${
-              totalEdges > 1 ? 'shadow-md ring-1 ring-blue-200 dark:ring-blue-800' : ''
+                ? 'border-orange-500 bg-orange-100/95 dark:bg-orange-900/70 text-orange-900 dark:text-orange-100' 
+                : 'border-gray-500 bg-white/95 dark:bg-gray-800/95 dark:border-gray-400 hover:border-blue-500 hover:bg-blue-50/95 dark:hover:bg-blue-900/50 text-gray-900 dark:text-gray-100'
             }`}
             onClick={handleLabelClick}
           >
@@ -191,7 +342,9 @@ export const TransitionEdge = memo(({
                   className="w-6 h-6 p-0 bg-white hover:bg-red-50"
                   onClick={(e) => {
                     e.stopPropagation()
-                    onDelete()
+                    if (onDelete) {
+                      onDelete()
+                    }
                   }}
                 >
                   <X className="h-3 w-3" />
@@ -206,31 +359,35 @@ export const TransitionEdge = memo(({
       <defs>
         <marker
           id="arrowhead"
-          markerWidth="10"
-          markerHeight="7"
-          refX="9"
-          refY="3.5"
+          markerWidth="12"
+          markerHeight="8"
+          refX="10"
+          refY="4"
           orient="auto"
           markerUnits="strokeWidth"
         >
           <polygon
-            points="0 0, 10 3.5, 0 7"
-            fill={selected ? '#f97316' : '#6b7280'}
+            points="0 0, 12 4, 0 8"
+            fill={selected ? '#f97316' : '#374151'}
+            stroke={selected ? '#f97316' : '#374151'}
+            strokeWidth="0.5"
             className="transition-colors duration-200"
           />
         </marker>
         <marker
           id="arrowhead-self"
-          markerWidth="10"
-          markerHeight="7"
-          refX="9"
-          refY="3.5"
+          markerWidth="12"
+          markerHeight="8"
+          refX="10"
+          refY="4"
           orient="auto"
           markerUnits="strokeWidth"
         >
           <polygon
-            points="0 0, 10 3.5, 0 7"
-            fill={selected ? '#f97316' : '#6b7280'}
+            points="0 0, 12 4, 0 8"
+            fill={selected ? '#f97316' : '#374151'}
+            stroke={selected ? '#f97316' : '#374151'}
+            strokeWidth="0.5"
             className="transition-colors duration-200"
           />
         </marker>
