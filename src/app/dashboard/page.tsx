@@ -356,6 +356,121 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Green Technology Section */}
+        <div className="mb-20">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            {/* Developer Image */}
+            <div className="relative">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
+                className="relative bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl p-8 shadow-xl"
+              >
+                <img 
+                  src="/Image/Sifat.jpg" 
+                  alt="Green Technology Developer - Sifat Ali" 
+                  className="w-full h-auto rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-green-600/20 via-transparent to-transparent rounded-2xl pointer-events-none"></div>
+                <div className="absolute bottom-4 left-4 right-4">
+                  <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-xl p-6 shadow-2xl border border-white/20 dark:border-gray-700/30">
+                    <p className="text-base font-poppins font-bold text-gray-900 dark:text-white italic leading-relaxed drop-shadow-sm">
+                      "Don't force AI everywhere—think like an engineer, not a vibe coder. The right algorithm can make a huge change in others' lives. Follow what is right, not the hype."
+                    </p>
+                    <p className="text-sm text-green-600 dark:text-green-400 font-poppins font-bold mt-3 text-right">
+                      — Sustainable Computing Philosophy
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+
+            <div className="space-y-8">
+              <div>
+                <motion.h2 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6 }}
+                  className="text-4xl font-poppins font-bold text-foreground mb-6"
+                >
+                  <span className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent animate-gradient bg-300%">
+                    ⚡ Sustainable Computing
+                  </span>
+                  <br />
+                  <span className="text-xl font-semibold text-orange-500 mt-1 block">
+                    Our Hero Feature
+                  </span>
+                  <br />
+                  <span className="text-2xl font-medium text-muted-foreground mt-2 block">
+                    Rule-Based Algorithms Over AI/ML
+                  </span>
+                </motion.h2>
+                <motion.p 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.2 }}
+                  className="text-lg text-muted-foreground font-poppins leading-relaxed mb-6"
+                >
+                  Unlike AI/ML solutions that consume massive energy and resources, our TOC Simulator uses <strong className="text-green-600">classical algorithms and rule-based pattern matching</strong> for a sustainable, eco-friendly approach.
+                </motion.p>
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.4 }}
+                  className="space-y-6"
+                >
+                  <div className="flex items-start space-x-4">
+                    <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                      <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                    </div>
+                    <div>
+                      <h4 className="font-poppins font-semibold text-foreground mb-2">⚡ Lower Energy Use</h4>
+                      <p className="text-muted-foreground font-poppins text-sm">Runs on standard CPUs at 1–10 watts. AI/ML models often need GPUs, drawing 100–1000+ watts.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-4">
+                    <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                      <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                    </div>
+                    <div>
+                      <h4 className="font-poppins font-semibold text-foreground mb-2">🚀 Faster Response</h4>
+                      <p className="text-muted-foreground font-poppins text-sm">Milliseconds for rule-based algorithms. AI/ML inference often takes seconds due to model size and complexity.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-4">
+                    <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                      <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                    </div>
+                    <div>
+                      <h4 className="font-poppins font-semibold text-foreground mb-2">🎯 Predictable & Reliable</h4>
+                      <p className="text-muted-foreground font-poppins text-sm">Outputs are deterministic — the same input always gives the same result. AI/ML is probabilistic, leading to inconsistent outputs.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-4">
+                    <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                      <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                    </div>
+                    <div>
+                      <h4 className="font-poppins font-semibold text-foreground mb-2">🔧 Reduced Overhead</h4>
+                      <p className="text-muted-foreground font-poppins text-sm">No model training, retraining, or hyperparameter tuning. Maintenance is simple, with stable logic instead of complex pipelines.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-4">
+                    <div className="w-6 h-6 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                      <div className="w-3 h-3 bg-green-600 rounded-full"></div>
+                    </div>
+                    <div>
+                      <h4 className="font-poppins font-semibold text-foreground mb-2">💰 Cost Advantage</h4>
+                      <p className="text-muted-foreground font-poppins text-sm">No GPU servers, cloud inference APIs, or licensing costs. Lower operational costs while scaling to more users.</p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Features Section */}
         <div className="mb-20">
           <div className="text-center mb-16">
