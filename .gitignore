@@ -186,3 +186,9 @@ ui-debug.log*
 
 # Turbopack
 .turbo
+
+#backend
+.venv
+__pycache__/
+*.pyc
+.env
