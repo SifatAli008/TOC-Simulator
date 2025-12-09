@@ -7,7 +7,7 @@ class EmailService:
         self.api_key = settings.MAILJET_API_KEY
         self.api_secret = settings.MAILJET_API_SECRET
         self.client = Client(auth=(self.api_key, self.api_secret), version='v3.1')
-        self.sender_email = "noreply@tocsimulator.com"
+        self.sender_email = "theshahidkhan.2004@gmail.com"
         self.sender_name = "TOC Simulator"
 
     def send_verification_email(self, user_email, user_name, verification_code):
@@ -50,7 +50,18 @@ class EmailService:
         
         try:
             result = self.client.send.create(data=data)
-            return result.status_code == 200
+            print(f"📧 Mailjet Response Status: {result.status_code}")
+            print(f"📧 Mailjet Response: {result.json()}")
+            
+            if result.status_code == 200:
+                print(f"✅ Email sent successfully to {user_email}")
+                return True
+            else:
+                print(f"❌ Mailjet returned status {result.status_code}")
+                print(f"Response: {result.json()}")
+                return False
         except Exception as e:
-            print(f"Error sending email: {str(e)}")
+            print(f"❌ Error sending email: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False
