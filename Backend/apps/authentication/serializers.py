@@ -36,3 +36,14 @@ class UserSerializer(serializers.ModelSerializer):
         user.set_password(validated_data['password'])
         user.save()
         return user
+
+class EmailVerificationCodeSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    code = serializers.CharField(min_length=6, max_length=6, required=True)
+
+    def validate_code(self, value):
+        """Validate that code contains only allowed characters"""
+        chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+        if not all(char in chars for char in value):
+            raise serializers.ValidationError("Invalid verification code format.")
+        return value
