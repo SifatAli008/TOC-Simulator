@@ -1,6 +1,6 @@
 # Authentication API Documentation
 
-Base URL: `http://localhost:8000` (dev) | `https://your-backend.vercel.app` (prod)
+Base URL: `http://localhost:8000` (dev) | `https://toc-simulator-backend.onrender.com` (prod)
 
 ## Endpoints
 

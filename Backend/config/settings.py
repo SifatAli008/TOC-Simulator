@@ -30,8 +30,8 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-# Allow all hosts for development/testing
-ALLOWED_HOSTS = ['*']
+# Allowed hosts: localhost for dev, Render for production
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'toc-simulator-backend.onrender.com']
 
 
 # Application definition
