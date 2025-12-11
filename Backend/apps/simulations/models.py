@@ -177,4 +177,16 @@ class SimulationRun(models.Model):
         status = "✓" if self.is_accepted else "✗"
         return f"{status} '{self.input_string}' on {self.session.session_name}"
     
+class SimulationSessionManager(models.Manager):
+    def recent(self, days=7):
+        """Get sessions created in last N days"""
+        cutoff = timezone.now() - timedelta(days=days)
+        return self.filter(created_at__gte=cutoff)
     
+    def by_type(self, automata_type):
+        """Get sessions of specific type"""
+        return self.filter(automata_type=automata_type)
+    
+    def favorites(self, user):
+        """Get user's favorite sessions"""
+        return self.filter(user=user, is_favorite=True)
