@@ -137,3 +137,44 @@ class SimulationSessions(models.Model):
         Check if the session was accessed in the last 7 days.
         """
         return self.last_accessed_at >= timezone.now() - timedelta(days=7)
+
+class SimulationRun(models.Model):
+    session = models.ForeignKey(
+        SimulationSessions,
+        on_delete=models.CASCADE,
+        related_name='runs'
+    )
+
+    input_string = models.CharField(
+        max_length=1000,
+        help_text='The input string tested'
+    )
+    
+    is_accepted = models.BooleanField(
+        help_text='Whether the automaton accepted this input'
+    )
+    
+    execution_time = models.FloatField(
+        help_text='Execution time in milliseconds'
+    )
+    
+    result_steps = models.JSONField(
+        help_text='Step-by-step simulation trace'
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'simulation_runs'
+        ordering = ['-created_at']
+        verbose_name = 'Simulation Run'
+        verbose_name_plural = 'Simulation Runs'
+        indexes = [
+            models.Index(fields=['session', '-created_at'])
+        ]
+
+    def __str__(self):
+        status = "✓" if self.is_accepted else "✗"
+        return f"{status} '{self.input_string}' on {self.session.session_name}"
+    
+    
