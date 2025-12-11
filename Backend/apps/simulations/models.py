@@ -68,7 +68,7 @@ class SimulationSessions(models.Model):
             models.Index(fields=['user', '-created_at']),
             models.Index(fields=['is_favorite']),
         ]
-        constrints = [
+        constraints = [
             models.UniqueConstraint(
                 fields=['user', 'session_name'],
                 name='unique_session_name_per_user'
