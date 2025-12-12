@@ -41,6 +41,10 @@ class SimulationSessionsDetailSerializer(serializers.ModelSerializer):
     
     state_count = serializers.IntegerField(read_only=True)
     transition_count = serializers.IntegerField(read_only=True)
+    
+    # New fields for sharing
+    share_url = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
 
     class Meta:
         model = SimulationSessions
@@ -53,6 +57,8 @@ class SimulationSessionsDetailSerializer(serializers.ModelSerializer):
             'automata_data',
             'is_favorite',
             'is_shared',
+            'share_url',
+            'is_owner',
             'created_at',
             'updated_at',
             'last_accessed_at',
@@ -60,6 +66,25 @@ class SimulationSessionsDetailSerializer(serializers.ModelSerializer):
             'transition_count',
             'runs'
         ]
+    
+    def get_share_url(self, obj):
+        """
+        Returns shareable URL if session is shared.
+        """
+        if obj.is_shared:
+            request = self.context.get('request')
+            if request:
+                return f"{request.scheme}://{request.get_host()}/shared/{obj.public_id}"
+        return None
+    
+    def get_is_owner(self, obj):
+        """
+        Check if current user is the owner.
+        """
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.user == request.user
+        return False
 
 class SimulationSessionsCreateSerializer(serializers.ModelSerializer):
     class Meta:
