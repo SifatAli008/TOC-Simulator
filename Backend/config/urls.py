@@ -26,4 +26,5 @@ urlpatterns = [
     path('health/', health_check, name='health_check'),
     path('admin/', admin.site.urls),
     path('auth/', include('apps.authentication.urls')),
+    path('simulations/', include('apps.simulations.urls')),
 ]
