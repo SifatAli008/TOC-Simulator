@@ -94,7 +94,7 @@ class SimulationSessionsViewSet(viewsets.ModelViewSet):
         # Detail view: Allow accessing shared sessions by UUID
         if self.action == 'retrieve':
             return SimulationSessions.objects.filter(
-                Q(user=user) | Q(is_shared=True)  # Owner's sessions OR shared sessions
+                Q(user=user) | Q(is_shared=True)
             ).select_related('user').prefetch_related(
                 Prefetch(
                     'runs',

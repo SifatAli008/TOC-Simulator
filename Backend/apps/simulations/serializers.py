@@ -135,7 +135,7 @@ class SimulationSessionsCreateSerializer(serializers.ModelSerializer):
     
 class SimulationSessionsUpdateSerializer(serializers.ModelSerializer):
 
-    session_name = serializers.CharField(required=False)  # Fixed: was 'name', should be 'session_name'
+    session_name = serializers.CharField(required=False)
     automata_data = serializers.JSONField(required=False)
     
     class Meta:
@@ -182,13 +182,13 @@ class UserBasicSerializer(serializers.ModelSerializer):
 class SimulationSessionWithUserSerializer(serializers.ModelSerializer):
     
     user = UserBasicSerializer(read_only=True)
-    is_editable = serializers.SerializerMethodField()  # Added field declaration
+    is_editable = serializers.SerializerMethodField()
     
     class Meta:
         model = SimulationSessions
         fields = [
             'id',
-            'session_name',  # Fixed: was 'name', should be 'session_name'
+            'session_name',
             'user',
             'automata_type',
             'is_editable',
