@@ -65,7 +65,7 @@ class SimulationSessionsViewSet(viewsets.ModelViewSet):
     
     serializer_class = SimulationSessionsListSerializer
 
-    permission_classes = [IsAuthenticated, IsOwnerOrSharedReadOnly]
+    permission_classes = [IsOwnerOrSharedReadOnly]
 
     pagination_class = StandardResultsSetPagination
 
@@ -77,9 +77,9 @@ class SimulationSessionsViewSet(viewsets.ModelViewSet):
         filters.SearchFilter,
         filters.OrderingFilter
     ]
-    filterset_fields = ['automata_type', 'is_favorite']
+    filterset_fields = ['automata_type', 'is_favorite', 'is_shared']
     search_fields = ['session_name', 'description']
-    ordering_fields = ['created_at', 'updated_at', 'session_name']
+    ordering_fields = ['created_at', 'updated_at', 'session_name', 'last_accessed_at']
     ordering = ['-last_accessed_at']
 
     # Override get_queryset to filter
@@ -87,12 +87,15 @@ class SimulationSessionsViewSet(viewsets.ModelViewSet):
         """
         Smart queryset for link-based sharing:
         - list: Only user's sessions
-        - retrieve: All sessions (permission will check is_shared)
+        - retrieve: User's sessions OR shared sessions (secure link-based access)
         """
+        user = self.request.user
         
         # Detail view: Allow accessing shared sessions by UUID
         if self.action == 'retrieve':
-            return SimulationSessions.objects.all().select_related('user').prefetch_related(
+            return SimulationSessions.objects.filter(
+                Q(user=user) | Q(is_shared=True)  # Owner's sessions OR shared sessions
+            ).select_related('user').prefetch_related(
                 Prefetch(
                     'runs',
                     queryset=SimulationRun.objects.order_by('-created_at')[:5]
