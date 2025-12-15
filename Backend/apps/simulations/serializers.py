@@ -19,7 +19,7 @@ class SimulationRunSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
 class SimulationSessionsListSerializer(serializers.ModelSerializer):
-    run_count = serializers.SerializerMethodField()
+    run_count = serializers.IntegerField(read_only=True)
     class Meta:
         model = SimulationSessions
         fields = [
@@ -33,8 +33,6 @@ class SimulationSessionsListSerializer(serializers.ModelSerializer):
             'last_accessed_at',
             'run_count'
         ]
-    def get_run_count(self, obj):
-        return obj.runs.count()
 
 class SimulationSessionsDetailSerializer(serializers.ModelSerializer):
     runs = SimulationRunSerializer(many=True, read_only=True)
@@ -137,7 +135,7 @@ class SimulationSessionsCreateSerializer(serializers.ModelSerializer):
     
 class SimulationSessionsUpdateSerializer(serializers.ModelSerializer):
 
-    name = serializers.CharField(required=False)
+    session_name = serializers.CharField(required=False)  # Fixed: was 'name', should be 'session_name'
     automata_data = serializers.JSONField(required=False)
     
     class Meta:
@@ -168,7 +166,7 @@ class SimulationSessionsUpdateSerializer(serializers.ModelSerializer):
         
         return instance
 
-class SimulationSessinosHyperlinkSerializer(serializers.HyperlinkedModelSerializer):
+class SimulationSessionsHyperlinkSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = SimulationSessions
         fields = ['url', 'session_name', 'automata_type', 'user']
@@ -184,12 +182,13 @@ class UserBasicSerializer(serializers.ModelSerializer):
 class SimulationSessionWithUserSerializer(serializers.ModelSerializer):
     
     user = UserBasicSerializer(read_only=True)
+    is_editable = serializers.SerializerMethodField()  # Added field declaration
     
     class Meta:
         model = SimulationSessions
         fields = [
             'id',
-            'name',
+            'session_name',  # Fixed: was 'name', should be 'session_name'
             'user',
             'automata_type',
             'is_editable',
