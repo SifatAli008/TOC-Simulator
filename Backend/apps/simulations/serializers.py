@@ -92,11 +92,13 @@ class SimulationSessionsCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SimulationSessions
         fields = [
+            'public_id',
             'session_name',
             'description',
             'automata_type',
             'automata_data'
         ]
+        read_only_fields = ['public_id']
     
     # Validate automata_data structure
     def validate_automata_data(self, value):
