@@ -35,7 +35,7 @@ class SimulationSessionsListSerializer(serializers.ModelSerializer):
         ]
 
 class SimulationSessionsDetailSerializer(serializers.ModelSerializer):
-    runs = SimulationRunSerializer(many=True, read_only=True)
+    runs = serializers.SerializerMethodField()
     
     state_count = serializers.IntegerField(read_only=True)
     transition_count = serializers.IntegerField(read_only=True)
@@ -64,6 +64,10 @@ class SimulationSessionsDetailSerializer(serializers.ModelSerializer):
             'transition_count',
             'runs'
         ]
+
+    def get_runs(self, obj):
+        recent_runs = obj.runs.order_by('-created_at')[:5]
+        return SimulationRunSerializer(recent_runs, many=True).data
     
     def get_share_url(self, obj):
         """

@@ -98,7 +98,7 @@ class SimulationSessionsViewSet(viewsets.ModelViewSet):
             ).select_related('user').prefetch_related(
                 Prefetch(
                     'runs',
-                    queryset=SimulationRun.objects.order_by('-created_at')[:5]
+                    queryset=SimulationRun.objects.order_by('-created_at')
                 )
             )
         
@@ -106,21 +106,16 @@ class SimulationSessionsViewSet(viewsets.ModelViewSet):
         queryset = SimulationSessions.objects.filter(
             user=self.request.user
         )
-        queryset = queryset.select_related('user')
-        queryset = queryset.prefetch_related(
-            Prefetch(
-                'runs',
-                queryset=SimulationRun.objects.order_by('-created_at')[:5]
-            )
-        )
-        queryset = queryset.annotate(
-            run_count=Count('runs')
-        )
-    
-        # Conditional filtering based on query params
+        
+        # Conditional filtering based on query params (must be before select_related)
         automata_type = self.request.query_params.get('type')
         if automata_type:
             queryset = queryset.filter(automata_type=automata_type.upper())
+        
+        # Optimize queries
+        queryset = queryset.select_related('user')
+        queryset = queryset.annotate(run_count=Count('runs'))
+        queryset = queryset.prefetch_related('runs')
         
         logger.debug(f"Queryset for user {self.request.user.email}: {queryset.query}")
 
